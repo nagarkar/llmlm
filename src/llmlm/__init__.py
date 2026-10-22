@@ -23,7 +23,9 @@ Decisions:
   `[project.scripts]`). (owner)
 - Every tool depends on the sibling checkout, editable, guarded by the consumer-test gate:
   `consumers.toml` names each tool and its test command; `tools/check-consumers.sh` runs them on
-  the scripted tier before a push and in CI. (owner)
+  the scripted tier in each tool's real venv before a push, which is the gate. CI runs the same
+  script and reports only, because the runner lacks the tools' sibling packages and system
+  tools. (owner)
 - One ledger format, one cap vocabulary (`[llm].max_usd_per_run`, `[llm].max_usd_per_day`),
   one price cache, for every tool. (owner)
 - An unknown model's cost is null, never an estimate. (owner)
@@ -34,5 +36,5 @@ Terms:
 - **tool**: a repo that calls a model through llmlm (ytlm, beelm, corpuslm, mailerlm, supplylm,
   authorlm, gamelm, podlm).
 - **consumer-test gate**: every tool's test suite run against the llmlm working tree before a
-  push and before a merge.
+  push, by the pre-push hook.
 """

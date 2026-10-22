@@ -7,7 +7,7 @@ Rules that span modules, from each package's `Decisions:`. Owner rules end with 
 ## Owner
 
 - `llmlm`: An unknown model's cost is null, never an estimate. (owner)
-- `llmlm`: Every tool depends on the sibling checkout, editable, guarded by the consumer-test gate: `consumers.toml` names each tool and its test command; `tools/check-consumers.sh` runs them on the scripted tier before a push and in CI. (owner)
+- `llmlm`: Every tool depends on the sibling checkout, editable, guarded by the consumer-test gate: `consumers.toml` names each tool and its test command; `tools/check-consumers.sh` runs them on the scripted tier in each tool's real venv before a push, which is the gate. CI runs the same script and reports only, because the runner lacks the tools' sibling packages and system tools. (owner)
 - `llmlm`: One ledger format, one cap vocabulary (`[llm].max_usd_per_run`, `[llm].max_usd_per_day`), one price cache, for every tool. (owner)
 - `llmlm`: The reply-cache key is byte for byte what corpuslm's was. Enforced by: tests/test_llm.py::test_the_cache_key_is_byte_for_byte_what_it_always_was. (owner)
 - `llmlm`: llmlm is a library only; verbs live in the tools. Enforced by: pyproject.toml (no `[project.scripts]`). (owner)
