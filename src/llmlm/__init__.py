@@ -13,6 +13,8 @@ verbs. Under them it calls this package:
   model's rates.
 - `llmlm.typesafe` (extra `llmlm[typesafe]`): the HTTP client for TypeSafe's Jev, its retry
   rule, its input-only cost and its ledger line.
+- `llmlm.images` (extra `llmlm[images]`): one rendered image per call, Gemini, OpenAI edits or
+  litellm, with a count-only ledger line.
 - `llmlm.ledger`: the `usage.jsonl` writer and reader, one line per call, rotated.
 - `llmlm.usage`: the model-spend board a tool's `usage` verb and the one dashboard read.
 

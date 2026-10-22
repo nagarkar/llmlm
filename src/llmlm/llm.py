@@ -43,6 +43,11 @@ replies from earlier tools stay valid only while it is byte for byte what it was
 
 Never imports: usage.
 
+A tool that builds its own messages (content blocks with `cache_control` breakpoints, authorlm's
+drafting) calls `Client.complete_messages` instead: the same cache (keyed by `messages_sha256`),
+caps, price and ledger, with `max_tokens`, `reasoning_effort` and `thinking_budget` as call knobs,
+cache reads and writes priced and recorded, and `Refused` for a model that declines.
+
 Terms:
 - **payload**: the rendered messages of one model call; its sha256 with the model and
   temperature is the cache key.
@@ -54,13 +59,14 @@ Terms:
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import os
 import sys
 import time
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC
 from pathlib import Path
 from typing import Any, Protocol
@@ -95,6 +101,11 @@ class VendorError(RuntimeError):
     """The vendor or the network failed (timeout, 5xx, a rate limit that
     outlasted the retries): the step fails, the stage records it, and the run
     goes on to the next video."""
+
+
+class Refused(RuntimeError):
+    """The model declined to answer (Anthropic `stop_reason: refusal`, which litellm maps to
+    `finish_reason: content_filter`). An HTTP 200, so it must never pass for an empty reply."""
 
 
 class TruncatedReply(RuntimeError):
@@ -136,7 +147,14 @@ class ModelProfile:
     # vendor honours response_format json_schema: the reply is constrained to the prompt's
     # declared schema at the vendor, not only checked after (verified live per model)
     json_schema: bool = False
+    # `reasoning_effort` may be sent (False for a model that 400s on it)
+    reasoning_effort: bool = True
+    # "anthropic": block-level `cache_control` is copied into the provider request, so attaching
+    # breakpoints is worth it; None: nothing to attach (a vendor that caches server-side still does)
+    prompt_cache: str | None = None
 
+
+CLAUDE_5 = ModelProfile("claude-5", VENDOR_DEFAULT_ONLY, False, prompt_cache="anthropic")
 
 # Rows only for contracts verified live or by litellm's own model map.
 # Longest matching prefix wins; a model with no row gets UNKNOWN_PROFILE.
@@ -158,6 +176,19 @@ MODEL_PROFILES: tuple[tuple[str, ModelProfile], ...] = (
     # take no temperature (verified live in gamelm and supplylm).
     ("openai/gpt-5.5", ModelProfile("gpt-5.5", VENDOR_DEFAULT_ONLY, True)),
     ("openai/gpt-5.6", ModelProfile("gpt-5.6", VENDOR_DEFAULT_ONLY, True)),
+    # authorlm's rows (nagarkar/llmlm#1, step 7). The Claude 5 family removed sampling parameters:
+    # litellm's map says supports_sampling_params is false for these, and its client raises rather
+    # than send one. Enumerated, never globbed: claude-haiku-4-5 still takes a temperature.
+    ("anthropic/claude-sonnet-5", CLAUDE_5),
+    ("anthropic/claude-fable-5", CLAUDE_5),
+    ("anthropic/claude-opus-5", CLAUDE_5),
+    (
+        "anthropic/claude-haiku-4-5",
+        ModelProfile("claude-haiku-4-5", ANY, False, prompt_cache="anthropic"),
+    ),
+    # Proven live 2026-08-30 (authorlm): 400s server-side on any temperature but 1. OpenAI caches
+    # prefixes server-side, so there is no breakpoint to attach.
+    ("openai/gpt-5.6-luna", ModelProfile("gpt-5.6-luna", VENDOR_DEFAULT_ONLY, False)),
 )
 # A model with no row gets the plain request (metalm coding.md, "LLM
 # calls"): no temperature and no JSON mode, nothing the vendor may reject.
@@ -266,16 +297,39 @@ def say_retry(service: str, status: int, tag: str, attempt: int, wait: float) ->
 
 @dataclass(frozen=True, slots=True)
 class RawReply:
+    """`tokens_in` is net of the cache reads and writes (litellm folds them into prompt_tokens)."""
+
     text: str
     tokens_in: int
     tokens_out: int
     cost_usd: float | None
+    cache_read: int = 0
+    cache_write: int = 0
+    finish_reason: str = "stop"
 
 
 class Transport(Protocol):
     name: str
 
     def send(self, model: str, messages: list[dict], params: dict, *, tag: str) -> RawReply: ...
+
+
+def _cache_fields(cache_read: int, cache_write: int) -> dict:
+    """The ledger line's optional cache counters, present only when the vendor reported some."""
+    return {
+        name: value
+        for name, value in (("cache_read", cache_read), ("cache_write", cache_write))
+        if value
+    }
+
+
+def _usage_int(holder: Any, name: str) -> int:
+    """One usage counter off litellm's object (or a plain dict), 0 when absent: every provider
+    fills a different subset."""
+    if holder is None:
+        return 0
+    value = holder.get(name) if isinstance(holder, dict) else getattr(holder, name, 0)
+    return int(value or 0)
 
 
 class LiteLLMTransport:
@@ -331,15 +385,23 @@ class LiteLLMTransport:
         if finish == "length":
             # A reply cut off by the token limit is a failure, never a partial artifact.
             raise TruncatedReply("reply cut off by the token limit (finish_reason=length)")
+        if finish == "content_filter":
+            raise Refused(f"{model} refused to answer (finish_reason=content_filter)")
         try:
             cost = float(cost_of(response))
         except Exception:  # noqa: BLE001 - unknown price table → null, never an estimate
             cost = None
+        details = getattr(usage, "prompt_tokens_details", None)
+        cache_read = _usage_int(details, "cached_tokens")
+        cache_write = _usage_int(details, "cache_creation_tokens")
         return RawReply(
             text=response.choices[0].message.content or "",
-            tokens_in=int(getattr(usage, "prompt_tokens", 0) or 0),
-            tokens_out=int(getattr(usage, "completion_tokens", 0) or 0),
+            tokens_in=max(0, _usage_int(usage, "prompt_tokens") - cache_read - cache_write),
+            tokens_out=_usage_int(usage, "completion_tokens"),
             cost_usd=cost,
+            cache_read=cache_read,
+            cache_write=cache_write,
+            finish_reason=finish or "stop",
         )
 
 
@@ -361,12 +423,17 @@ class ScriptedTransport:
         body = json.loads(path.read_text(encoding="utf-8"))
         tokens_in = int(body.get("tokens_in", 0))
         tokens_out = int(body.get("tokens_out", 0))
+        cache_read = int(body.get("cache_read", 0))
+        cache_write = int(body.get("cache_write", 0))
         prices = self.prices or prices_mod.default()
         return RawReply(
             text=body["reply"],
             tokens_in=tokens_in,
             tokens_out=tokens_out,
-            cost_usd=prices.price_usd(model, tokens_in, tokens_out),
+            cost_usd=prices.price_usd(model, tokens_in, tokens_out, cache_read, cache_write),
+            cache_read=cache_read,
+            cache_write=cache_write,
+            finish_reason=str(body.get("finish_reason", "stop")),
         )
 
 
@@ -374,6 +441,10 @@ VENDOR_KEY_ENV = {
     "gemini": "GEMINI_API_KEY",
     "openai": "OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",
+    "mistral": "MISTRAL_API_KEY",
+    "groq": "GROQ_API_KEY",
+    "xai": "XAI_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY",
 }
 
 
@@ -415,6 +486,9 @@ class Reply:
     cached: bool
     attempts: int = 1
     extra: dict = field(default_factory=dict)
+    cache_read: int = 0
+    cache_write: int = 0
+    finish_reason: str = "stop"
 
     def provenance(self) -> dict:
         return {
@@ -441,6 +515,52 @@ def payload_sha256(model: str, temperature: float | None, messages: list[dict]) 
         separators=(",", ":"),
     )
     return hashlib.sha256(key.encode("utf-8")).hexdigest()
+
+
+def messages_sha256(
+    model: str, temperature: float | None, messages: list[dict], **params: Any
+) -> str:
+    """The reply-cache key of a call made from raw messages (`Client.complete_messages`): the
+    model, temperature and the messages' text with every block-level `cache_control` removed
+    (flipping caching on or off must not re-record a fixture), plus the other knobs that change
+    the reply (`max_tokens`, `reasoning_effort`, `thinking_budget`), each keyed only when set."""
+    key: dict[str, Any] = {
+        "model": model,
+        "temperature": temperature,
+        "messages": without_cache_control(messages),
+    }
+    knobs = {name: value for name, value in params.items() if value is not None}
+    if knobs:
+        key["params"] = knobs
+    return hashlib.sha256(
+        json.dumps(key, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def without_cache_control(messages: list[dict]) -> list[dict]:
+    """`messages` with every block-level `cache_control` key removed; a no-op for string content."""
+    if not any(isinstance(message.get("content"), list) for message in messages):
+        return messages
+    stripped = copy.deepcopy(messages)
+    for message in stripped:
+        content = message.get("content")
+        if isinstance(content, list):
+            for block in content:
+                if isinstance(block, dict):
+                    block.pop("cache_control", None)
+    return stripped
+
+
+def flat_text(messages: list[dict]) -> str:
+    """The messages' text, one string (block lists joined), for the invocation's log."""
+    parts = []
+    for message in messages:
+        content = message.get("content")
+        if isinstance(content, list):
+            parts.append("\n".join(str(block.get("text", "")) for block in content))
+        else:
+            parts.append(str(content))
+    return "\n".join(parts)
 
 
 def parse_json_object(text: str) -> Any:
@@ -707,9 +827,11 @@ class Client:
             elapsed = time.monotonic() - started
             if raw.cost_usd is None:
                 # the transport had no price for it; the price cache may
-                priced = self.prices.price_usd(model, raw.tokens_in, raw.tokens_out)
+                priced = self.prices.price_usd(
+                    model, raw.tokens_in, raw.tokens_out, raw.cache_read, raw.cache_write
+                )
                 if priced is not None:
-                    raw = RawReply(raw.text, raw.tokens_in, raw.tokens_out, priced)
+                    raw = replace(raw, cost_usd=priced)
             self.calls += 1
             self.spent_usd += raw.cost_usd or 0.0
             self._log(stage, tag, payload_hash, messages, raw, elapsed, attempts)
@@ -768,6 +890,175 @@ class Client:
             cost_usd=raw.cost_usd,
             cached=False,
             attempts=attempts,
+        )
+        self._ledger(stage, prompt, reply, tag)
+        return reply
+
+    def complete_messages(
+        self,
+        stage: str,
+        messages: list[dict],
+        *,
+        tag: str,
+        model: str | None = None,
+        temperature: Any = "config",
+        max_tokens: int | None = None,
+        reasoning_effort: str | None = None,
+        thinking_budget: int | None = None,
+        timeout: float | None = None,
+        api_base: str | None = None,
+        api_key: str | None = None,
+        parse=None,
+    ) -> Reply:
+        """One call from raw messages (a tool that builds its own, with content blocks and
+        `cache_control` breakpoints), through the same cache, caps, price and ledger as `complete`.
+
+        The model is `model`, else `[<stage>].model`. `temperature` is the section's (default 0.2)
+        unless given (None sends none); the model's profile wins over both. `reasoning_effort` is
+        sent only where the profile allows it; `thinking_budget` becomes `thinking`. The reply is
+        text: `parsed` is `parse(text)` when `parse` is given (a ValueError is a bad reply), else
+        None, and a reply is never retried on its content. Raises Refused and TruncatedReply
+        (never cached), NotConfigured (no key and no recording), SpendCapReached, VendorError."""
+        section = self.config.get(stage) or {}
+        model = model or section.get("model")
+        if not model:
+            raise NotConfigured(f"[{stage}].model is not set; the {stage} stage is off")
+        profile = model_profile(model)
+        if temperature == "config":
+            temperature = section.get("temperature", 0.2)
+        if profile.temperature == VENDOR_DEFAULT_ONLY:
+            temperature = None
+        if not profile.reasoning_effort:
+            reasoning_effort = None
+        payload_hash = messages_sha256(
+            model,
+            temperature,
+            messages,
+            max_tokens=max_tokens,
+            reasoning_effort=reasoning_effort,
+            thinking_budget=thinking_budget,
+        )
+        prompt = Prompt(
+            id=stage,
+            version=1,
+            stage=stage,
+            output_schema="",
+            config_section=stage,
+            body="",
+            path=Path(stage),
+            sha256=payload_hash,
+        )
+        requested_at = clock_mod.iso(self.clock())
+        cache_path = self.cache_dir / f"{payload_hash}.json"
+
+        def reply_from(cached: dict, *, from_cache: bool, raw: RawReply | None = None) -> Reply:
+            text = cached["reply"] if raw is None else raw.text
+            try:
+                parsed = parse(text) if parse is not None else None
+            except ValueError as error:
+                raise BadReply(f"reply does not parse: {error}", 1, text) from error
+            source = cached if raw is None else raw
+            get = source.get if isinstance(source, dict) else lambda n, d=0: getattr(source, n, d)
+            return Reply(
+                parsed=parsed,
+                raw=text,
+                prompt=prompt,
+                model=model,
+                profile=profile.name,
+                payload_sha256=payload_hash,
+                requested_at=requested_at,
+                tokens_in=int(get("tokens_in", 0)),
+                tokens_out=int(get("tokens_out", 0)),
+                cost_usd=0.0 if from_cache else (raw.cost_usd if raw else None),
+                cached=from_cache,
+                cache_read=int(get("cache_read", 0)),
+                cache_write=int(get("cache_write", 0)),
+                finish_reason=str(get("finish_reason", "stop")),
+            )
+
+        if cache_path.exists():
+            reply = reply_from(json.loads(cache_path.read_text(encoding="utf-8")), from_cache=True)
+            self._ledger(stage, prompt, reply, tag)
+            return reply
+        key_env = vendor_key_env(model)
+        if (
+            self.transport.name == "litellm"
+            and key_env
+            and not api_key
+            and not os.environ.get(key_env)
+        ):
+            raise NotConfigured(f"{key_env} is not set; {stage} is off")
+        self.check_spend_cap(stage, tag)
+        params: dict = {"_stage": stage}
+        if temperature is not None:
+            params["temperature"] = temperature
+        for name, value in (
+            ("max_tokens", max_tokens),
+            ("reasoning_effort", reasoning_effort),
+            ("api_base", api_base),
+            ("api_key", api_key),
+        ):
+            if value:
+                params[name] = value
+        if thinking_budget is not None:
+            params["thinking"] = {"type": "enabled", "budget_tokens": thinking_budget}
+        if (timeout or section.get("timeout_seconds")) and self.transport.name == "litellm":
+            params["timeout"] = float(timeout or section["timeout_seconds"])
+        started = time.monotonic()
+        raw = self.transport.send(
+            model,
+            messages,
+            {k: v for k, v in params.items() if k != "_stage" or self.transport.name == "scripted"},
+            tag=tag,
+        )
+        elapsed = time.monotonic() - started
+        if raw.cost_usd is None:
+            priced = self.prices.price_usd(
+                model, raw.tokens_in, raw.tokens_out, raw.cache_read, raw.cache_write
+            )
+            if priced is not None:
+                raw = replace(raw, cost_usd=priced)
+        self.calls += 1
+        self.spent_usd += raw.cost_usd or 0.0
+        self.log_block(
+            stage,
+            f"{tag} payload={payload_hash[:12]} {elapsed:.1f}s in={raw.tokens_in} "
+            f"out={raw.tokens_out} cost={raw.cost_usd}",
+            flat_text(messages),
+            raw.text,
+        )
+        if self.capped and raw.cost_usd is None:
+            self._ledger_raw(stage, prompt, model, raw, tag, "bad_reply")
+            cap_name = RUN_CAP if self.max_usd is not None else DAY_CAP
+            raise SpendCapReached(
+                f"{model} has no price in the table, so the spend caps cannot "
+                f"be enforced; add a row to llmlm/prices.py OVERRIDES or remove {cap_name}",
+                cap_name,
+            )
+        try:
+            reply = reply_from({}, from_cache=False, raw=raw)
+        except BadReply:
+            self._ledger_raw(stage, prompt, model, raw, tag, "bad_reply")
+            raise
+        write_atomic(
+            cache_path,
+            json.dumps(
+                {
+                    "model": model,
+                    "temperature": temperature,
+                    "messages": without_cache_control(messages),
+                    "reply": raw.text,
+                    "tokens_in": raw.tokens_in,
+                    "tokens_out": raw.tokens_out,
+                    "cache_read": raw.cache_read,
+                    "cache_write": raw.cache_write,
+                    "finish_reason": raw.finish_reason,
+                    "cost_usd": raw.cost_usd,
+                    "requested_at": requested_at,
+                },
+                ensure_ascii=False,
+                indent=1,
+            ),
         )
         self._ledger(stage, prompt, reply, tag)
         return reply
@@ -871,6 +1162,7 @@ class Client:
                 "cached": False,
                 "tag": tag,
                 "outcome": outcome,
+                **_cache_fields(raw.cache_read, raw.cache_write),
             }
         )
 
@@ -887,6 +1179,7 @@ class Client:
                 "cached": reply.cached,
                 "tag": tag,
                 "outcome": "ok",
+                **_cache_fields(reply.cache_read, reply.cache_write),
             }
         )
 
@@ -940,6 +1233,8 @@ class Client:
 
 
 __all__ = [
+    "Refused",
+    "messages_sha256",
     "Client",
     "Reply",
     "BadReply",

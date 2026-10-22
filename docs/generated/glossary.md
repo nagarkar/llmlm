@@ -12,6 +12,7 @@
 - **price cache** (`llmlm.prices`): `~/.llmlm/prices.json`, the fetched model map with its `checked_at`.
 - **prompt** (`llmlm.prompts`): one versioned file with front matter (id, version, stage, output schema, configuration section, expected output tokens) and a body.
 - **provenance** (`llmlm.llm`): what an artifact records about how it was made: prompt, model, cost, time.
+- **render** (`llmlm.images`): one `generate_image` call, one image back.
 - **spend cap** (`llmlm.llm`): `[llm].max_usd_per_run` (per run) or `[llm].max_usd_per_day` (per day) in a tool's settings: the client raises `SpendCapReached` before a call that would exceed it. A source it stops is recorded failed with a reason that starts `budget` (the stored name).
 - **tool** (`llmlm`): a repo that calls a model through llmlm (ytlm, beelm, corpuslm, mailerlm, supplylm, authorlm, gamelm, podlm).
 - **usage** (`llmlm.ledger`): model spend: `usage.jsonl`, one line per model call.
