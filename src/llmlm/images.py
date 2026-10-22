@@ -51,7 +51,7 @@ def generate_image(
     size: str = "",
     timeout: float = 120,
     key: str | None = None,
-    urlopen=urllib.request.urlopen,
+    urlopen=None,
     image_generation=None,
     openai_client=None,
 ) -> bytes:
@@ -59,6 +59,7 @@ def generate_image(
     reference plates, in the order the prompt names them). `size` is the vendor's size string, ''
     for its default."""
     images = list(images or [])
+    urlopen = urlopen or urllib.request.urlopen  # looked up now, so a test can patch it
     key = key if key is not None else os.environ.get(llm.vendor_key_env(model), "")
     if model.startswith("gemini/"):
         if not key:
