@@ -677,6 +677,11 @@ class Client:
             }
         elif profile.json_mode:
             params["response_format"] = {"type": "json_object"}
+        max_tokens = (self.config.get(prompt.config_section) or {}).get("max_tokens")
+        if max_tokens:
+            # a vendor that needs a reply limit named (Anthropic) gets the section's; not part of
+            # the payload hash, so the cache is unaffected
+            params["max_tokens"] = int(max_tokens)
         timeout = (self.config.get(prompt.config_section) or {}).get("timeout_seconds")
         if timeout and self.transport.name == "litellm":
             # a stage whose replies are long (a whole conversation's line speakers) waits longer;
