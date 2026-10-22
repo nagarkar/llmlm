@@ -261,3 +261,19 @@ def test_read_with_rotated_reads_older_generations_first(tmp_path):
         "mid",
         "new",
     ]
+
+
+def test_a_tool_may_stamp_its_lines_with_the_verb_the_run_and_the_client(tmp_path):
+    folder = tmp_path / "logs"
+    ledger.Ledger(folder).usage(
+        usage_event(
+            invocation="collect --auto",
+            run="abc123",
+            client={"engine": "claude-code", "session": "s1", "precision": "exact"},
+        )
+    )
+    (line,) = ledger.read(folder / "usage.jsonl")
+    assert line["invocation"] == "collect --auto" and line["run"] == "abc123"
+    assert line["client"]["session"] == "s1"
+    with pytest.raises(schemas.SchemaError):
+        ledger.Ledger(folder).usage(usage_event(invocation=3))
