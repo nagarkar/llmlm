@@ -22,6 +22,14 @@ llmlm is a library. It has no command line; a tool's own `usage`, `doctor` and r
 - A changed `MODEL_PROFILES` or `OVERRIDES` row names its verification (page and date) in a comment.
 - The launcher for checks is `.venv/bin/pytest` in this checkout.
 
+## Secrets
+
+Set by the owner, never by an agent (metalm `operations.md#repo-secrets`). Check with `gh secret list --repo nagarkar/llmlm`.
+
+| Secret | Scope | Read by | Set |
+|---|---|---|---|
+| `CONSUMERS_TOKEN` | fine-grained PAT, Contents read-only on the eight consumer repos in `consumers.toml`, with an expiry | `.github/workflows/consumers.yml` (`tools/check-consumers.sh --ci`) | `gh secret set CONSUMERS_TOKEN --repo nagarkar/llmlm`, value pasted at the prompt; create it at https://github.com/settings/personal-access-tokens |
+
 ## Merging
 
 - Merge only on the owner's word in chat.
