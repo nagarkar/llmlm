@@ -70,6 +70,14 @@ Schemas: the JSON schemas of the files llmlm owns, the ledger lines.
 
 Never imports: llm, ledger.
 
+## `llmlm.typesafe`
+
+`src/llmlm/typesafe.py`
+
+TypeSafe: the one HTTP client for Jev, TypeSafe's System One model (`llmlm[typesafe]`).
+
+Never imports: usage, estimate. Needs the `typesafe` extra (`httpx`), imported at the first call.
+
 ## `llmlm.usage`
 
 `src/llmlm/usage.py`

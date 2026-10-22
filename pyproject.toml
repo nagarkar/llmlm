@@ -14,8 +14,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# TypeSafe judgments and image generation arrive in later PRs (nagarkar/llmlm#1) as
-# `llmlm[typesafe]` and `llmlm[images]`.
+# TypeSafe (Jev) over HTTP: `llmlm.typesafe`. Image generation arrives in a later PR
+# (nagarkar/llmlm#1) as `llmlm[images]`.
+typesafe = [
+  "httpx>=0.28",
+]
 dev = [
   "pytest>=8.0",
   "ruff>=0.12",

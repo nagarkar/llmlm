@@ -4,6 +4,7 @@
 
 - **consumer-test gate** (`llmlm`): every tool's test suite run against the llmlm working tree before a push and before a merge.
 - **estimate** (`llmlm.estimate`): calls, cached calls, tokens in and out, and the cost at the configured model, for a run that has not happened.
+- **Jev** (`llmlm.typesafe`): TypeSafe's System One model, named by the alias `jev-latest` to follow its newest release.
 - **ledger** (`llmlm.ledger`): one of three JSONL logs: `trace.jsonl`, `usage.jsonl`, `db-perf.jsonl`.
 - **model spend** (`llmlm.usage`): the dollars, calls, cached calls and tokens in a tool's `usage.jsonl`.
 - **override** (`llmlm.prices`): a hand-verified price row with its source page and date, for a model the map lacks or gets wrong.
