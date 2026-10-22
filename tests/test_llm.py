@@ -523,3 +523,10 @@ def test_replay_serves_a_cached_reply_without_the_payload_and_names_a_miss(promp
         caller.replay("greet", prompt, "0123456789abcdef", tag="t0")
     with pytest.raises(llm.CacheMiss, match="payload \\?"):
         caller.replay("greet", prompt, "", tag="t0")
+
+
+def test_payload_hash_is_the_cache_key_of_the_call_before_it_is_made(prompt, tmp_path):
+    caller = client(tmp_path)
+    key = caller.payload_hash(prompt, {"word": "hello"})
+    messages = [{"role": "user", "content": prompt.render({"word": "hello"})}]
+    assert key == llm.payload_sha256(FLASH_LITE, 0.2, messages)
