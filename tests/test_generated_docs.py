@@ -7,16 +7,19 @@ docs/generated/.
 """
 
 import subprocess
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-GENDOCS = ROOT / ".venv" / "bin" / "metalm-gendocs"
+# The launcher sits beside whichever interpreter runs the tests: .venv/bin here, the runner's
+# python in CI (pip install -e ".[dev]" puts it there).
+GENDOCS = Path(sys.executable).parent / "metalm-gendocs"
 
 
 def test_generated_docs_are_current():
     assert (
         GENDOCS.exists()
-    ), f"{GENDOCS} missing: .venv/bin/pip install -e '.[dev]' (metalm-gendocs is a dev dependency)"
+    ), f"{GENDOCS} missing: pip install -e '.[dev]' (metalm-gendocs is a dev dependency)"
     out = subprocess.run(
         [str(GENDOCS), "--check", "--root", str(ROOT)], capture_output=True, text=True
     )
