@@ -894,6 +894,55 @@ class Client:
         self._ledger(stage, prompt, reply, tag)
         return reply
 
+    def _messages_key(
+        self,
+        stage: str,
+        messages: list[dict],
+        model: str | None,
+        temperature: Any,
+        max_tokens: int | None,
+        reasoning_effort: str | None,
+        thinking_budget: int | None,
+    ) -> tuple[str, ModelProfile, float | None, str | None, str]:
+        """(model, profile, temperature, reasoning effort, cache key) of a messages call, after the
+        model's profile has had its say: what `complete_messages` sends and keys the cache on."""
+        section = self.config.get(stage) or {}
+        model = model or section.get("model")
+        if not model:
+            raise NotConfigured(f"[{stage}].model is not set; the {stage} stage is off")
+        profile = model_profile(model)
+        if temperature == "config":
+            temperature = section.get("temperature", 0.2)
+        if profile.temperature == VENDOR_DEFAULT_ONLY:
+            temperature = None
+        if not profile.reasoning_effort:
+            reasoning_effort = None
+        key = messages_sha256(
+            model,
+            temperature,
+            messages,
+            max_tokens=max_tokens,
+            reasoning_effort=reasoning_effort,
+            thinking_budget=thinking_budget,
+        )
+        return model, profile, temperature, reasoning_effort, key
+
+    def messages_hash(
+        self,
+        stage: str,
+        messages: list[dict],
+        *,
+        model: str | None = None,
+        temperature: Any = "config",
+        max_tokens: int | None = None,
+        reasoning_effort: str | None = None,
+        thinking_budget: int | None = None,
+    ) -> str:
+        """The reply-cache key `complete_messages` would use, before the call is made."""
+        return self._messages_key(
+            stage, messages, model, temperature, max_tokens, reasoning_effort, thinking_budget
+        )[4]
+
     def complete_messages(
         self,
         stage: str,
@@ -919,25 +968,10 @@ class Client:
         text: `parsed` is `parse(text)` when `parse` is given (a ValueError is a bad reply), else
         None, and a reply is never retried on its content. Raises Refused and TruncatedReply
         (never cached), NotConfigured (no key and no recording), SpendCapReached, VendorError."""
-        section = self.config.get(stage) or {}
-        model = model or section.get("model")
-        if not model:
-            raise NotConfigured(f"[{stage}].model is not set; the {stage} stage is off")
-        profile = model_profile(model)
-        if temperature == "config":
-            temperature = section.get("temperature", 0.2)
-        if profile.temperature == VENDOR_DEFAULT_ONLY:
-            temperature = None
-        if not profile.reasoning_effort:
-            reasoning_effort = None
-        payload_hash = messages_sha256(
-            model,
-            temperature,
-            messages,
-            max_tokens=max_tokens,
-            reasoning_effort=reasoning_effort,
-            thinking_budget=thinking_budget,
+        model, profile, temperature, reasoning_effort, payload_hash = self._messages_key(
+            stage, messages, model, temperature, max_tokens, reasoning_effort, thinking_budget
         )
+        section = self.config.get(stage) or {}
         prompt = Prompt(
             id=stage,
             version=1,

@@ -152,3 +152,15 @@ def test_the_new_profile_rows_say_what_authorlm_verified():
     assert llm.model_profile(OPUS).temperature == llm.VENDOR_DEFAULT_ONLY
     assert llm.model_profile("anthropic/claude-haiku-4-5").temperature == llm.ANY
     assert llm.model_profile(GEMINI).prompt_cache is None
+
+
+def test_messages_hash_is_the_key_the_call_will_use_after_the_profile_has_its_say(tmp_path):
+    client = _client(tmp_path, Recorder())
+    key = client.messages_hash("writing", _blocks(), max_tokens=8000, reasoning_effort="high")
+    assert key == llm.messages_sha256(
+        OPUS, None, _blocks(), max_tokens=8000, reasoning_effort="high"
+    )
+    client.complete_messages(
+        "writing", _blocks(), tag="b", max_tokens=8000, reasoning_effort="high"
+    )
+    assert (tmp_path / "root" / "llm-cache" / f"{key}.json").exists()
