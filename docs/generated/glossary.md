@@ -2,7 +2,7 @@
 
 # Glossary
 
-- **consumer-test gate** (`llmlm`): every tool's test suite run against the llmlm working tree before a push and before a merge.
+- **consumer-test gate** (`llmlm`): every tool's test suite run against the llmlm working tree before a push, by the pre-push hook.
 - **estimate** (`llmlm.estimate`): calls, cached calls, tokens in and out, and the cost at the configured model, for a run that has not happened.
 - **Jev** (`llmlm.typesafe`): TypeSafe's System One model, named by the alias `jev-latest` to follow its newest release.
 - **ledger** (`llmlm.ledger`): one of three JSONL logs: `trace.jsonl`, `usage.jsonl`, `db-perf.jsonl`.

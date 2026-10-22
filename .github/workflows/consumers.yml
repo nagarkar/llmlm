@@ -1,7 +1,9 @@
-# .github/workflows/consumers.yml: the consumer-test gate (llmlm package docstring). Every
-# migrated consumer in consumers.toml is cloned at main with CONSUMERS_TOKEN (a fine-grained,
-# read-only token stored as a repository secret) and its test suite runs against this branch's
-# llmlm. Required for merge (branch protection on main).
+# .github/workflows/consumers.yml: llmlm's own tests, then the consumer suites (llmlm package
+# docstring). Every migrated consumer in consumers.toml is cloned at main with CONSUMERS_TOKEN
+# (a fine-grained, read-only token stored as a repository secret) and its test suite runs against
+# this branch's llmlm. The consumer step is informational: the runner lacks the consumers' sibling
+# packages, system tools and drives, so the gate is the pre-push hook, which runs the same script
+# in each consumer's real venv. (owner) llmlm's own tests are the required part.
 name: consumers
 on: pull_request
 jobs:
@@ -14,5 +16,6 @@ jobs:
           python-version: "3.12"
       - run: pip install -e ".[dev]" && pytest -q
       - run: tools/check-consumers.sh --ci
+        continue-on-error: true
         env:
           CONSUMERS_TOKEN: ${{ secrets.CONSUMERS_TOKEN }}
