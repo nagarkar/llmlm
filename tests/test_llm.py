@@ -523,3 +523,33 @@ def test_replay_serves_a_cached_reply_without_the_payload_and_names_a_miss(promp
         caller.replay("greet", prompt, "0123456789abcdef", tag="t0")
     with pytest.raises(llm.CacheMiss, match="payload \\?"):
         caller.replay("greet", prompt, "", tag="t0")
+
+
+def test_payload_hash_is_the_cache_key_of_the_call_before_it_is_made(prompt, tmp_path):
+    caller = client(tmp_path)
+    key = caller.payload_hash(prompt, {"word": "hello"})
+    messages = [{"role": "user", "content": prompt.render({"word": "hello"})}]
+    assert key == llm.payload_sha256(FLASH_LITE, 0.2, messages)
+
+
+def test_a_sections_max_tokens_reaches_the_transport_and_not_the_cache_key(prompt, tmp_path):
+    seen = []
+
+    class Recorder:
+        name = "recorder"
+
+        def send(self, model, messages, params, *, tag):
+            seen.append(params)
+            return llm.RawReply('{"greeting": "hi"}', 1, 1, 0.0)
+
+    config = {
+        "greeting": {"model": FLASH_LITE, "temperature": 0.2, "max_tokens": 8000},
+        "llm": {},
+        "logs": {},
+    }
+    capped = client(tmp_path, config=config)
+    capped.transport = Recorder()
+    capped.complete("greeting", prompt, {"word": "x"}, tag="t")
+    assert seen[0]["max_tokens"] == 8000
+    plain = client(tmp_path)
+    assert plain.payload_hash(prompt, {"word": "x"}) == capped.payload_hash(prompt, {"word": "x"})

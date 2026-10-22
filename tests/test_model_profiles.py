@@ -54,3 +54,9 @@ def test_a_model_with_no_row_is_named_with_its_section():
 
 def test_a_section_with_no_model_or_absent_is_not_a_warning():
     assert llm.unprofiled_models({"cleanup": {}}, SECTIONS) == []
+
+
+def test_the_openai_models_the_tools_run_on_take_no_temperature_and_json_mode():
+    for model in ("openai/gpt-5.5", "openai/gpt-5.6"):
+        profile = llm.model_profile(model)
+        assert profile.temperature == llm.VENDOR_DEFAULT_ONLY and profile.json_mode is True

@@ -96,15 +96,17 @@ def usage_line(
     tag: str,
     *,
     prompt_id: str,
+    stage: str = STAGE,
     cached: bool = False,
     outcome: str = "ok",
     prices: Prices | None = None,
 ) -> dict:
     """The `usage.jsonl` event of one TypeSafe call (`llmlm.ledger.Ledger.usage`), stage
-    `arbiter`, kind `api`; a cached answer costs nothing."""
+    `arbiter` unless the tool names its own (gamelm's audit), kind `api`; a cached answer costs
+    nothing."""
     usage = reply.get("usage") or {}
     return {
-        "stage": STAGE,
+        "stage": stage,
         "prompt_id": prompt_id,
         "model": str(reply.get("model") or model),
         "tokens_in": int(usage.get("input_tokens", 0) or 0),

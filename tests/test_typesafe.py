@@ -112,3 +112,10 @@ def test_the_ledger_line_is_an_arbiter_api_line_and_a_cached_answer_is_free(tmp_
         "jev-latest", reply, "v-amb-1", prompt_id="arbiter", cached=True, prices=_prices(tmp_path)
     )
     assert cached["cost_usd"] == 0.0 and cached["cached"] is True
+
+
+def test_a_tool_may_name_its_own_stage(tmp_path):
+    line = typesafe.usage_line(
+        "jev-latest", {}, "audit-1", prompt_id="audit", stage="audit", prices=_prices(tmp_path)
+    )
+    assert line["stage"] == "audit" and line["tokens_in"] == 0 and line["cost_usd"] == 0.0

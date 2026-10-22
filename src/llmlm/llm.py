@@ -154,6 +154,10 @@ MODEL_PROFILES: tuple[tuple[str, ModelProfile], ...] = (
         "gemini/gemini-3.1-flash-lite",
         ModelProfile("gemini-3.1-flash-lite", VENDOR_DEFAULT_ONLY, True, json_schema=True),
     ),
+    # gamelm's judge and critic and supplylm's author and propose run on these; reasoning models
+    # take no temperature (verified live in gamelm and supplylm).
+    ("openai/gpt-5.5", ModelProfile("gpt-5.5", VENDOR_DEFAULT_ONLY, True)),
+    ("openai/gpt-5.6", ModelProfile("gpt-5.6", VENDOR_DEFAULT_ONLY, True)),
 )
 # A model with no row gets the plain request (metalm coding.md, "LLM
 # calls"): no temperature and no JSON mode, nothing the vendor may reject.
@@ -566,6 +570,12 @@ class Client:
         messages = [{"role": "user", "content": prompt.render(variables)}]
         return model, profile, temperature, messages, payload_sha256(model, temperature, messages)
 
+    def payload_hash(
+        self, prompt: Prompt, variables: dict[str, str], *, model: str | None = None
+    ) -> str:
+        """The reply-cache key (and the ledger's payload sha256) of a call, before it is made."""
+        return self._payload(prompt, variables, model)[4]
+
     def lookup(
         self,
         stage: str,
@@ -667,6 +677,11 @@ class Client:
             }
         elif profile.json_mode:
             params["response_format"] = {"type": "json_object"}
+        max_tokens = (self.config.get(prompt.config_section) or {}).get("max_tokens")
+        if max_tokens:
+            # a vendor that needs a reply limit named (Anthropic) gets the section's; not part of
+            # the payload hash, so the cache is unaffected
+            params["max_tokens"] = int(max_tokens)
         timeout = (self.config.get(prompt.config_section) or {}).get("timeout_seconds")
         if timeout and self.transport.name == "litellm":
             # a stage whose replies are long (a whole conversation's line speakers) waits longer;
