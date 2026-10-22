@@ -1,0 +1,71 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "llmlm"
+version = "0.1.0"
+description = "The one model-call layer for the lm repos: LiteLLM transport, price cache, cost estimate, usage ledger and spend caps. A library, no command line."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "litellm>=1.70",
+  "jsonschema>=4.0",
+]
+
+[project.optional-dependencies]
+# TypeSafe judgments and image generation arrive in later PRs (nagarkar/llmlm#1) as
+# `llmlm[typesafe]` and `llmlm[images]`.
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.12",
+  "pyright>=1.1.400",
+  "import-linter>=2.0",
+  "pre-commit>=3.0",
+  # Docs in code (metalm guidelines/design.md#generated-docs); pinned to a metalm main commit.
+  "metalm-gendocs @ git+https://github.com/nagarkar/metalm@f67b5a56ec1c5bed02de51dbfa1de88de25edc7e",
+]
+
+[tool.hatch.metadata]
+allow-direct-references = true  # metalm-gendocs installs from a git URL until metalm is published
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/llmlm"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "cuj(journey): the critical user journey this end-to-end test proves (docs/generated/cujs.md)",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.metalm-gendocs]
+src = "src"
+tests = "tests"
+out = "docs/generated"
+
+# Module map (metalm guidelines/design.md#the-package-docstring): each contract is named in the
+# `Never imports` line of the package docstring it protects.
+[tool.importlinter]
+root_package = "llmlm"
+
+[[tool.importlinter.contracts]]
+name = "the foundations call no model"
+type = "forbidden"
+source_modules = [
+  "llmlm.clock", "llmlm.files", "llmlm.schemas", "llmlm.ledger", "llmlm.prompts",
+  "llmlm.prices", "llmlm.estimate", "llmlm.usage",
+]
+forbidden_modules = ["llmlm.llm"]
+
+[[tool.importlinter.contracts]]
+name = "the board reads ledgers only"
+type = "forbidden"
+source_modules = ["llmlm.usage"]
+forbidden_modules = ["llmlm.prices", "llmlm.estimate", "llmlm.prompts"]
