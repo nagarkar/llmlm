@@ -1,0 +1,17 @@
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+.DS_Store
+.claude/worktrees/
+.claude/settings.local.json
+.venv/
+mutants/
+.coverage
+tests/js/node_modules/
+.venv
+node_modules

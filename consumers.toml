@@ -1,0 +1,58 @@
+# The consumer-test gate (llmlm package docstring): every tool that imports llmlm, with the
+# checkout beside this one and the test command that runs on the scripted tier (no model, no
+# cost). `tools/check-consumers.sh` runs each `migrated = true` row before a push and in CI;
+# a row flips to true in the PR that moves that tool onto llmlm (nagarkar/llmlm#1).
+#
+# path:   the sibling checkout, relative to the folder that holds llmlm
+# repo:   the GitHub name CI clones (with CONSUMERS_TOKEN, read-only)
+# test:   the test command, run from the consumer's root with llmlm installed editable
+# subdir: where the Python project sits inside the checkout, when not at its root
+
+[consumers.corpuslm]
+path = "corpuslm"
+repo = "nagarkar/corpuslm"
+test = ".venv/bin/pytest -q"
+migrated = false
+
+[consumers.ytlm]
+path = "ytlm"
+repo = "nagarkar/ytlm"
+test = ".venv/bin/pytest -q"
+migrated = false
+
+[consumers.beelm]
+path = "beelm"
+repo = "nagarkar/beelm"
+test = ".venv/bin/pytest -q"
+migrated = false
+
+[consumers.mailerlm]
+path = "mailerlm"
+repo = "nagarkar/mailerlm"
+test = ".venv/bin/pytest -q"
+migrated = false
+
+[consumers.supplylm]
+path = "supplylm"
+repo = "nagarkar/supplylm"
+test = ".venv/bin/pytest -q"
+migrated = false
+
+[consumers.gamelm]
+path = "gamelm"
+repo = "nagarkar/gamelm"
+test = ".venv/bin/pytest -q"
+migrated = false
+
+[consumers.podlm]
+path = "podlm"
+repo = "nagarkar/podlm"
+test = ".venv/bin/pytest -q"
+migrated = false
+
+[consumers.authorlm]
+path = "authorllm"
+subdir = "authorlm"
+repo = "nagarkar/authorllm"
+test = ".venv/bin/pytest -q"
+migrated = false

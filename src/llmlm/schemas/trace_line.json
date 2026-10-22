@@ -1,0 +1,93 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "llmlm.trace_line/1",
+ "title": "trace.jsonl line",
+ "description": "One verb run (llmlm.ledger), or one event inside a verb.",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "at"
+ ],
+ "properties": {
+  "at": {
+   "type": "string",
+   "description": "ISO timestamp, UTC."
+  },
+  "argv": {
+   "type": "array",
+   "description": "Arguments after the program name.",
+   "items": {
+    "type": "string",
+    "description": "One argument."
+   }
+  },
+  "client": {
+   "type": "string",
+   "description": "Client id: cli | podlm | authorlm."
+  },
+  "workspace": {
+   "type": "string",
+   "description": "Workspace root."
+  },
+  "seconds": {
+   "type": "number",
+   "description": "Wall time.",
+   "minimum": 0
+  },
+  "exit_code": {
+   "type": "integer",
+   "description": "Process exit code."
+  },
+  "event": {
+   "type": "string",
+   "enum": [
+    "result_landed"
+   ],
+   "description": "What happened: result_landed = a work order's result was staged in the Doc by document propose."
+  },
+  "corpus": {
+   "type": "string",
+   "description": "Corpus name."
+  },
+  "tab": {
+   "type": "string",
+   "description": "Tab file the result was staged into."
+  },
+  "order": {
+   "type": "string",
+   "description": "The archived order's file stem."
+  },
+  "writer": {
+   "type": "string",
+   "description": "Who wrote the result: 'chat road' (a chat subagent) or 'billed model <model string>'."
+  },
+  "payload_sha256": {
+   "type": "string",
+   "description": "For a billed writer: the sha256 of the payload (its cache key)."
+  },
+  "revisions": {
+   "type": "integer",
+   "minimum": 0,
+   "description": "Revisions staged from this result."
+  }
+ },
+ "anyOf": [
+  {
+   "required": [
+    "argv",
+    "client",
+    "workspace",
+    "seconds",
+    "exit_code"
+   ]
+  },
+  {
+   "required": [
+    "event",
+    "corpus",
+    "tab",
+    "writer"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,90 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "llmlm.usage_line/1",
+ "title": "usage.jsonl line",
+ "description": "One model call (llmlm.ledger).",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "at",
+  "stage",
+  "prompt_id",
+  "model",
+  "tokens_in",
+  "tokens_out",
+  "cost_usd",
+  "kind",
+  "cached",
+  "tag",
+  "outcome"
+ ],
+ "properties": {
+  "at": {
+   "type": "string",
+   "description": "ISO timestamp, UTC."
+  },
+  "stage": {
+   "type": "string",
+   "description": "Pipeline stage."
+  },
+  "prompt_id": {
+   "type": "string",
+   "description": "Prompt file id."
+  },
+  "model": {
+   "type": "string",
+   "description": "LiteLLM model string."
+  },
+  "tokens_in": {
+   "type": "integer",
+   "description": "Prompt tokens.",
+   "minimum": 0
+  },
+  "tokens_out": {
+   "type": "integer",
+   "description": "Completion tokens.",
+   "minimum": 0
+  },
+  "cost_usd": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "Cost from the price table, null when unknown."
+  },
+  "kind": {
+   "type": "string",
+   "description": "api = billed by the tool; chat = a chat-road render, never summed.",
+   "enum": [
+    "api",
+    "chat"
+   ]
+  },
+  "cached": {
+   "type": "boolean",
+   "description": "Served from llm-cache; billed nothing."
+  },
+  "tag": {
+   "type": "string",
+   "description": "The unit of work (a video and batch, a record id), for the log."
+  },
+  "outcome": {
+   "type": "string",
+   "description": "ok | bad_reply.",
+   "enum": [
+    "ok",
+    "bad_reply"
+   ]
+  },
+  "cache_read": {
+   "type": "integer",
+   "description": "Prompt tokens served from the vendor's prompt cache (counted inside tokens_in).",
+   "minimum": 0
+  },
+  "cache_write": {
+   "type": "integer",
+   "description": "Prompt tokens written to the vendor's prompt cache.",
+   "minimum": 0
+  }
+ }
+}
