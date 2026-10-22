@@ -17,9 +17,7 @@ migrated = true
 [consumers.ytlm]
 path = "ytlm"
 repo = "nagarkar/ytlm"
-# the two deselected tests start a real `ytlm run` subprocess that reaches YouTube: not the
-# scripted tier, and they fail whenever YouTube blocks the machine's address
-test = ".venv/bin/pytest -q --deselect tests/test_mcp.py::test_a_long_verb_through_run_cli_returns_a_job_id_at_once --deselect tests/test_mcp.py::test_wait_keeps_a_long_verb_inline_and_short_verbs_never_detach"
+test = ".venv/bin/pytest -q"
 migrated = true
 
 [consumers.beelm]
