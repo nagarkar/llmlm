@@ -85,6 +85,19 @@
    "type": "integer",
    "description": "Prompt tokens written to the vendor's prompt cache.",
    "minimum": 0
+  },
+  "invocation": {
+   "type": "string",
+   "description": "The verb label of the invocation that made the call (a tool's command and action), for a tool whose usage report groups by it."
+  },
+  "run": {
+   "type": "string",
+   "description": "One id shared by every line an invocation wrote, so a report can count invocations."
+  },
+  "client": {
+   "type": "object",
+   "description": "The provenance key of the client that drove the invocation (engine, session, precision), for a tool that attributes spend to a chat.",
+   "additionalProperties": true
   }
  }
 }

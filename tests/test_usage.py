@@ -79,3 +79,15 @@ def test_a_missing_ledger_or_unreadable_settings_is_a_problem_and_nothing_is_cre
     assert any("cannot read" in problem for problem in board["problems"])
     assert not (tmp_path / "nowhere").exists()
     assert usage.caps(None) == {"per_run_usd": None, "per_day_usd": None, "problem": ""}
+
+
+def test_the_row_helpers_are_public_so_a_tool_can_group_lines_its_own_way():
+    row = usage.empty_row()
+    for line in (
+        {"kind": "api", "tokens_in": 10, "tokens_out": 5, "cost_usd": 0.5, "cached": False},
+        {"kind": "api", "tokens_in": 1, "tokens_out": 1, "cost_usd": None, "cached": False},
+        {"kind": "chat"},
+    ):
+        usage.add_line(row, line)
+    assert (row["calls"], row["cost_unknown"], row["chat"]) == (2, 1, 1)
+    assert row["cost_usd"] == 0.5 and row["tokens_in"] == 11

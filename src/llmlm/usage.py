@@ -31,12 +31,12 @@ NOTE = (
 SPEND_FIELDS = ("calls", "cached", "tokens_in", "tokens_out", "cost_usd", "cost_unknown", "chat")
 
 
-def _empty() -> dict:
+def empty_row() -> dict:
     return {"calls": 0, "cached": 0, "tokens_in": 0, "tokens_out": 0, "cost_usd": 0.0,
             "cost_unknown": 0, "chat": 0}  # fmt: skip
 
 
-def _add(row: dict, line: dict) -> None:
+def add_line(row: dict, line: dict) -> None:
     if line.get("kind") == "chat":
         row["chat"] += 1
         return
@@ -72,14 +72,14 @@ def tool_spend(tool: str, folder: Path, settings_file: Path | None, month: str) 
     """One tool's model spend for `month` (YYYY-MM): totals, by stage, by day, and its caps."""
     path = Path(folder) / "usage.jsonl"
     found = path.exists() or path.with_name("usage.jsonl.1").exists()
-    total, by_stage, by_day = _empty(), {}, {}
+    total, by_stage, by_day = empty_row(), {}, {}
     for line in ledger.read(path, with_rotated=True):
         timestamp = str(line.get("at", ""))
         if not timestamp.startswith(month):
             continue
-        _add(total, line)
-        _add(by_stage.setdefault(str(line.get("stage", "?")), _empty()), line)
-        _add(by_day.setdefault(timestamp[:10], _empty()), line)
+        add_line(total, line)
+        add_line(by_stage.setdefault(str(line.get("stage", "?")), empty_row()), line)
+        add_line(by_day.setdefault(timestamp[:10], empty_row()), line)
     spend_caps = caps(settings_file)
     problems = [spend_caps.pop("problem")] if spend_caps["problem"] else []
     spend_caps.pop("problem", None)
