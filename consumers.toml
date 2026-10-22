@@ -58,5 +58,7 @@ migrated = true
 path = "authorllm"
 subdir = "authorlm"
 repo = "nagarkar/authorllm"
-test = ".venv/bin/pytest -q"
-migrated = false
+# authorlm's suites are scripts, not pytest modules; the live suite (test_live_llm.py) records
+# billed calls on a miss and is left out
+test = "for f in tests/test_*.py; do [ \"$f\" = tests/test_live_llm.py ] || .venv/bin/python \"$f\" || exit 1; done"
+migrated = true
