@@ -30,6 +30,14 @@ Files: writing a file whole or not at all.
 
 Never imports: llm.
 
+## `llmlm.images`
+
+`src/llmlm/images.py`
+
+Images: one rendered image per call (`llmlm[images]`), the third road beside text and TypeSafe.
+
+Never imports: usage, estimate, prices. Needs the `images` extra (`openai`) only for edits.
+
 ## `llmlm.ledger`
 
 `src/llmlm/ledger.py`

@@ -14,8 +14,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# TypeSafe (Jev) over HTTP: `llmlm.typesafe`. Image generation arrives in a later PR
-# (nagarkar/llmlm#1) as `llmlm[images]`.
+# TypeSafe (Jev) over HTTP: `llmlm.typesafe`. Image generation: `llmlm.images` (the `openai`
+# package is needed only for reference-image edits on openai/* image models).
+images = [
+  "openai>=1.30",
+]
 typesafe = [
   "httpx>=0.28",
 ]
