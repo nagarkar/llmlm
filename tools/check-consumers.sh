@@ -7,6 +7,10 @@
 #   tools/check-consumers.sh            # local, all migrated consumers
 #   tools/check-consumers.sh ytlm beelm # local, only these
 #   tools/check-consumers.sh --ci       # CI
+#
+# A consumer's sibling checkout may be on another branch or behind main. To run its suite from
+# another checkout (a worktree holding the change under test), name it:
+#   LLMLM_CONSUMER_ROOTS="ytlm=/path/to/a beelm=/path/to/b" tools/check-consumers.sh
 set -u
 LLMLM="$(cd "$(dirname "$0")/.." && pwd)"
 REPOS="$(dirname "$LLMLM")"
@@ -46,6 +50,9 @@ while IFS=$'\t' read -r name path subdir repo migrated test; do
     python3 -m venv "$root/.venv" && "$root/.venv/bin/pip" install -q -e "$LLMLM" -e "$root[dev]" || { echo "FAIL   $name: install failed"; status=1; continue; }
   else
     root="$REPOS/$path/$subdir"
+    for override in ${LLMLM_CONSUMER_ROOTS:-}; do
+      [ "${override%%=*}" = "$name" ] && root="${override#*=}/$subdir"
+    done
     if [ ! -d "$root/.venv" ]; then echo "skip   $name: no checkout or venv at $root"; continue; fi
     "$root/.venv/bin/pip" install -q -e "$LLMLM" || { echo "FAIL   $name: pip install -e llmlm failed"; status=1; continue; }
   fi
