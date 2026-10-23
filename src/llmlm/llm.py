@@ -1036,6 +1036,11 @@ class Client:
                 params[name] = value
         if thinking_budget is not None:
             params["thinking"] = {"type": "enabled", "budget_tokens": thinking_budget}
+        if api_base and reasoning_effort:
+            # An OpenAI-compatible endpoint (a proxy, Ollama) decides for itself whether it takes
+            # an effort; litellm's own model map does not know the model behind it and would
+            # raise UnsupportedParamsError before sending (authorllm test_e2e, 2026-10-22).
+            params["allowed_openai_params"] = ["reasoning_effort"]
         if (timeout or section.get("timeout_seconds")) and self.transport.name == "litellm":
             params["timeout"] = float(timeout or section["timeout_seconds"])
         started = time.monotonic()
