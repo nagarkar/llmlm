@@ -164,3 +164,20 @@ def test_messages_hash_is_the_key_the_call_will_use_after_the_profile_has_its_sa
         "writing", _blocks(), tag="b", max_tokens=8000, reasoning_effort="high"
     )
     assert (tmp_path / "root" / "llm-cache" / f"{key}.json").exists()
+
+
+def test_an_endpoint_effort_is_passed_through_not_checked_against_litellms_map(tmp_path):
+    transport = Recorder()
+    client = _client(tmp_path, transport)
+    client.complete_messages(
+        "writing",
+        _blocks(),
+        tag="b",
+        model="openai/stub-writer",
+        reasoning_effort="high",
+        api_base="http://127.0.0.1:1/v1",
+    )
+    _, _, params = transport.sent[0]
+    assert params["allowed_openai_params"] == ["reasoning_effort"]
+    client.complete_messages("writing", _blocks(), tag="c", reasoning_effort="high")
+    assert "allowed_openai_params" not in transport.sent[1][2]

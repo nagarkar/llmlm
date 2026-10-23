@@ -31,7 +31,7 @@ def test_gemini_takes_the_prompt_and_the_input_images_in_order():
         return _gemini_reply()
 
     out = images.generate_image(
-        "gemini/gemini-2.5-flash-image", "draw", images=[PNG, JPG], key="k", urlopen=urlopen
+        "gemini/gemini-3.1-flash-lite-image", "draw", images=[PNG, JPG], key="k", urlopen=urlopen
     )
     assert out == PNG
     parts = seen[0]["contents"][0]["parts"]
@@ -100,5 +100,5 @@ def test_text_to_image_goes_through_litellm_and_declines_input_images_there():
 
 
 def test_the_ledger_line_is_a_count_with_no_invented_cost():
-    line = images.usage_line("gemini/gemini-2.5-flash-image", "slot-3")
+    line = images.usage_line("gemini/gemini-3.1-flash-lite-image", "slot-3")
     assert line["tokens_in"] == 0 and line["cost_usd"] is None and line["stage"] == "illustrations"

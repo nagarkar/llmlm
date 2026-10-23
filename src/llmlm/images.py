@@ -30,7 +30,9 @@ import urllib.request
 
 from . import llm
 
-DEFAULT_MODEL = "gemini/gemini-2.5-flash-image"
+# gemini-2.5-flash-image is deprecated; Google names this its replacement
+# (ai.google.dev/gemini-api/docs/deprecations, 2026-10-22).
+DEFAULT_MODEL = "gemini/gemini-3.1-flash-lite-image"
 STAGE = "illustrations"
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
