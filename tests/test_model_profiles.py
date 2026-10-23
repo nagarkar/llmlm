@@ -57,6 +57,13 @@ def test_a_section_with_no_model_or_absent_is_not_a_warning():
 
 
 def test_the_openai_models_the_tools_run_on_take_no_temperature_and_json_mode():
-    for model in ("openai/gpt-5.5", "openai/gpt-5.6"):
+    for model in ("openai/gpt-5.5", "openai/gpt-5.6", "openai/gpt-5.6-sol"):
         profile = llm.model_profile(model)
         assert profile.temperature == llm.VENDOR_DEFAULT_ONLY and profile.json_mode is True
+
+
+def test_gamelms_openai_roles_get_a_strict_schema_and_may_take_an_effort():
+    # verified live 2026-10-22: strict json_schema accepted, reasoning_effort accepted
+    for model in ("openai/gpt-5.5", "openai/gpt-5.6-sol"):
+        profile = llm.model_profile(model)
+        assert profile.json_schema is True and profile.reasoning_effort is True
