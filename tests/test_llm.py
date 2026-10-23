@@ -532,6 +532,32 @@ def test_payload_hash_is_the_cache_key_of_the_call_before_it_is_made(prompt, tmp
     assert key == llm.payload_sha256(FLASH_LITE, 0.2, messages)
 
 
+def test_a_sections_reasoning_effort_reaches_the_transport_and_not_the_cache_key(prompt, tmp_path):
+    seen = []
+
+    class Recorder:
+        name = "recorder"
+
+        def send(self, model, messages, params, *, tag):
+            seen.append(params)
+            return llm.RawReply('{"greeting": "hi"}', 1, 1, 0.0)
+
+    config = {
+        "greeting": {"model": "openai/gpt-5.5", "reasoning_effort": "high"},
+        "llm": {},
+        "logs": {},
+    }
+    effortful = client(tmp_path, config=config)
+    effortful.transport = Recorder()
+    effortful.complete("greeting", prompt, {"word": "x"}, tag="t")
+    assert seen[0]["reasoning_effort"] == "high" and "temperature" not in seen[0]
+    bare = {"greeting": {"model": "openai/gpt-5.5"}, "llm": {}, "logs": {}}
+    plain = client(tmp_path, config=bare)
+    assert plain.payload_hash(prompt, {"word": "x"}) == effortful.payload_hash(
+        prompt, {"word": "x"}
+    )
+
+
 def test_a_sections_max_tokens_reaches_the_transport_and_not_the_cache_key(prompt, tmp_path):
     seen = []
 

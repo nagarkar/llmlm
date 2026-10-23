@@ -173,9 +173,15 @@ MODEL_PROFILES: tuple[tuple[str, ModelProfile], ...] = (
         ModelProfile("gemini-3.1-flash-lite", VENDOR_DEFAULT_ONLY, True, json_schema=True),
     ),
     # gamelm's judge and critic and supplylm's author and propose run on these; reasoning models
-    # take no temperature (verified live in gamelm and supplylm).
-    ("openai/gpt-5.5", ModelProfile("gpt-5.5", VENDOR_DEFAULT_ONLY, True)),
+    # take no temperature (verified live in gamelm and supplylm). Verified live 2026-10-22
+    # (gamelm's OpenAI roles onto llmlm): gpt-5.5 and gpt-5.6-sol accept a strict json_schema and
+    # `reasoning_effort`, and 400 on any temperature while reasoning is on.
+    ("openai/gpt-5.5", ModelProfile("gpt-5.5", VENDOR_DEFAULT_ONLY, True, json_schema=True)),
     ("openai/gpt-5.6", ModelProfile("gpt-5.6", VENDOR_DEFAULT_ONLY, True)),
+    (
+        "openai/gpt-5.6-sol",
+        ModelProfile("gpt-5.6-sol", VENDOR_DEFAULT_ONLY, True, json_schema=True),
+    ),
     # authorlm's rows (nagarkar/llmlm#1, step 7). The Claude 5 family removed sampling parameters:
     # litellm's map says supports_sampling_params is false for these, and its client raises rather
     # than send one. Enumerated, never globbed: claude-haiku-4-5 still takes a temperature.
@@ -802,6 +808,11 @@ class Client:
             # a vendor that needs a reply limit named (Anthropic) gets the section's; not part of
             # the payload hash, so the cache is unaffected
             params["max_tokens"] = int(max_tokens)
+        reasoning_effort = (self.config.get(prompt.config_section) or {}).get("reasoning_effort")
+        if reasoning_effort and profile.reasoning_effort:
+            # a reasoning model's effort (low, medium, high) comes from the section, like
+            # max_tokens: a tuning knob, not part of the payload hash
+            params["reasoning_effort"] = str(reasoning_effort)
         timeout = (self.config.get(prompt.config_section) or {}).get("timeout_seconds")
         if timeout and self.transport.name == "litellm":
             # a stage whose replies are long (a whole conversation's line speakers) waits longer;
