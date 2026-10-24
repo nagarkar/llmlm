@@ -15,3 +15,5 @@ mutants/
 tests/js/node_modules/
 .venv
 node_modules
+# No .env* path ever enters git (metalm guidelines/coding.md#security-and-secrets).
+.env*
