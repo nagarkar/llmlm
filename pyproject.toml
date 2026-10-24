@@ -29,7 +29,7 @@ dev = [
   "import-linter>=2.0",
   "pre-commit>=3.0",
   # Docs in code (metalm guidelines/design.md#generated-docs); pinned to a metalm main commit.
-  "metalm-gendocs @ git+https://github.com/nagarkar/metalm@f67b5a56ec1c5bed02de51dbfa1de88de25edc7e",
+  "metalm-gendocs @ git+https://github.com/nagarkar/metalm@cd6d0744aaef1034fa1048e67ae37443aad77e24",
 ]
 
 [tool.hatch.metadata]
