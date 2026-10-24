@@ -21,7 +21,7 @@ def test_generated_docs_are_current():
         GENDOCS.exists()
     ), f"{GENDOCS} missing: pip install -e '.[dev]' (metalm-gendocs is a dev dependency)"
     out = subprocess.run(
-        [str(GENDOCS), "--check", "--root", str(ROOT)], capture_output=True, text=True
+        [str(GENDOCS), "--dry-run", "--root", str(ROOT)], capture_output=True, text=True
     )
     assert out.returncode == 0, (
         f"docs/generated/ is stale; run .venv/bin/metalm-gendocs and commit it:\n"
