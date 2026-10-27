@@ -181,3 +181,19 @@ def test_an_endpoint_effort_is_passed_through_not_checked_against_litellms_map(t
     assert params["allowed_openai_params"] == ["reasoning_effort"]
     client.complete_messages("writing", _blocks(), tag="c", reasoning_effort="high")
     assert "allowed_openai_params" not in transport.sent[1][2]
+
+
+def test_a_json_schema_goes_to_a_model_that_honours_it_and_steps_down_elsewhere(tmp_path):
+    schema = {
+        "type": "json_schema",
+        "json_schema": {"name": "s", "schema": {"type": "object"}, "strict": True},
+    }
+    transport = Recorder()
+    client = _client(tmp_path, transport)
+    client.complete_messages(
+        "writing", _blocks(), tag="a", model="gemini/gemini-3.1-flash-lite", response_format=schema
+    )
+    assert transport.sent[0][2]["response_format"] == schema
+    client.complete_messages("writing", _blocks(), tag="b", response_format=schema)
+    expected = {"type": "json_object"} if llm.model_profile(OPUS).json_mode else None
+    assert transport.sent[1][2].get("response_format") == expected
