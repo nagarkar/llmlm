@@ -969,6 +969,7 @@ class Client:
         api_base: str | None = None,
         api_key: str | None = None,
         parse=None,
+        response_format: dict | None = None,
     ) -> Reply:
         """One call from raw messages (a tool that builds its own, with content blocks and
         `cache_control` breakpoints), through the same cache, caps, price and ledger as `complete`.
@@ -977,8 +978,12 @@ class Client:
         unless given (None sends none); the model's profile wins over both. `reasoning_effort` is
         sent only where the profile allows it; `thinking_budget` becomes `thinking`. The reply is
         text: `parsed` is `parse(text)` when `parse` is given (a ValueError is a bad reply), else
-        None, and a reply is never retried on its content. Raises Refused and TruncatedReply
-        (never cached), NotConfigured (no key and no recording), SpendCapReached, VendorError."""
+        None, and a reply is never retried on its content. `response_format` is the caller's
+        `{"type": "json_schema", ...}` or `{"type": "json_object"}`: a json_schema goes only to a
+        model whose profile honours it, else json_object where the profile has json mode, else
+        nothing; never part of the payload hash, so recordings still match. Raises Refused and
+        TruncatedReply (never cached), NotConfigured (no key and no recording), SpendCapReached,
+        VendorError."""
         model, profile, temperature, reasoning_effort, payload_hash = self._messages_key(
             stage, messages, model, temperature, max_tokens, reasoning_effort, thinking_budget
         )
@@ -1047,6 +1052,11 @@ class Client:
                 params[name] = value
         if thinking_budget is not None:
             params["thinking"] = {"type": "enabled", "budget_tokens": thinking_budget}
+        if response_format:
+            if response_format.get("type") == "json_schema" and not profile.json_schema:
+                response_format = {"type": "json_object"} if profile.json_mode else None
+            if response_format:
+                params["response_format"] = response_format
         if api_base and reasoning_effort:
             # An OpenAI-compatible endpoint (a proxy, Ollama) decides for itself whether it takes
             # an effort; litellm's own model map does not know the model behind it and would
