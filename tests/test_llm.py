@@ -579,3 +579,90 @@ def test_a_sections_max_tokens_reaches_the_transport_and_not_the_cache_key(promp
     assert seen[0]["max_tokens"] == 8000
     plain = client(tmp_path)
     assert plain.payload_hash(prompt, {"word": "x"}) == capped.payload_hash(prompt, {"word": "x"})
+
+
+class RejectingTransport:
+    """The vendor answers, and the transport rejects the reply the way LiteLLMTransport does."""
+
+    name = "rejecting"
+
+    def __init__(self, error):
+        self.error = error
+
+    def send(self, model, messages, params, *, tag):
+        raise self.error
+
+
+def rejecting_client(tmp_path, error, config=CONFIG):
+    return Client(
+        tmp_path / "root",
+        config,
+        transport=RejectingTransport(error),
+        validator=validate,
+        schema_loader=greeting_schema,
+        prices=prices(tmp_path),
+    )
+
+
+def call_lines(tmp_path):
+    path = tmp_path / "root" / "logs" / "calls.jsonl"
+    return [json.loads(line) for line in path.read_text().splitlines()]
+
+
+def test_a_truncated_reply_is_on_the_ledger_with_its_cost(prompt, tmp_path):
+    """A reply cut off by the token limit was billed by the vendor, so its tokens and cost reach
+    the usage ledger and the run's spend, and its partial text reaches the run log, though the
+    reply is rejected and never cached."""
+    raw = llm.RawReply("partial runaway", 1000, 60000, None)
+    caller = rejecting_client(tmp_path, llm.TruncatedReply("cut off", raw))
+    with pytest.raises(llm.TruncatedReply):
+        caller.complete("greet", prompt, {"word": "a"}, tag="t0")
+    line = usage_lines(tmp_path)[-1]
+    assert (line["outcome"], line["tokens_in"], line["tokens_out"]) == ("truncated", 1000, 60000)
+    assert line["cost_usd"] == pytest.approx(0.0241)
+    assert caller.spent_usd == pytest.approx(0.0241)
+    assert not list(caller.cache_dir.glob("*.json"))
+    assert [(c["event"], c.get("outcome")) for c in call_lines(tmp_path)] == [
+        ("sent", None),
+        ("done", "truncated"),
+    ]
+
+
+def test_a_call_is_recorded_when_sent_and_when_done(prompt, tmp_path):
+    """A call is on the record with its input size and the most it can cost before it goes out,
+    and an ordinary reply closes it."""
+    script(tmp_path, "t0", '{"greeting": "hi"}')
+    config = {**CONFIG, "greeting": {**CONFIG["greeting"], "max_tokens": 8000}}
+    client(tmp_path, config=config).complete("greet", prompt, {"word": "a"}, tag="t0")
+    sent, done = call_lines(tmp_path)
+    assert sent["event"] == "sent" and sent["call"] == done["call"]
+    assert sent["tokens_in"] > 0 and sent["max_tokens"] == 8000
+    assert sent["max_usd"] >= 8000 * 4e-7
+    assert done["outcome"] == "replied"
+
+
+def test_a_call_with_no_reply_counts_at_its_most(prompt, tmp_path):
+    """A call with no reply may have been billed, so it counts at the most it can cost toward
+    the run's spend."""
+    config = {**CONFIG, "greeting": {**CONFIG["greeting"], "max_tokens": 8000}}
+    caller = rejecting_client(tmp_path, llm.VendorError("timed out"), config)
+    with pytest.raises(llm.VendorError):
+        caller.complete("greet", prompt, {"word": "a"}, tag="t0")
+    assert caller.spent_usd >= 8000 * 4e-7
+    assert call_lines(tmp_path)[-1]["outcome"] == "no_reply"
+
+
+def test_the_day_cap_counts_unsettled_calls(prompt, tmp_path):
+    """The day cap counts, at their most, calls an earlier run sent and never settled: no reply,
+    or a run that died mid-call."""
+    logs = tmp_path / "root" / "logs"
+    logs.mkdir(parents=True)
+    today = clock.iso(clock.utc_now())
+    base = {"at": today, "stage": "greet", "model": "m", "tag": "t"}
+    rows = [
+        {**base, "call": "died", "event": "sent", "max_usd": 0.25},
+        {**base, "call": "fine", "event": "sent", "max_usd": 9.0},
+        {**base, "call": "fine", "event": "done", "outcome": "replied"},
+    ]
+    (logs / "calls.jsonl").write_text("".join(json.dumps(row) + "\n" for row in rows))
+    assert client(tmp_path).spent_today() == pytest.approx(0.25)

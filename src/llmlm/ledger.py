@@ -7,6 +7,8 @@ with an off switch passed as `logs_config`.
 - `usage.jsonl`   every model call: stage, prompt id, model, tokens (and cache reads and
                   writes where the vendor reports them), cost or null, kind = api | chat,
                   cached, tag, outcome.
+- `calls.jsonl`   every vendor call as it happens: `sent` with the input size and the most it can
+                  cost, then `done` with how it ended. A `sent` with no `done` may have been billed.
 - `trace.jsonl`   every verb: argv, client id, workspace, duration, exit code.
 - `db-perf.jsonl` query shapes and timings; off by default, no writer yet.
 
@@ -17,7 +19,7 @@ one raises `SchemaError`; reading skips a malformed line and prints how many on 
 Never imports: llm, prices, usage.
 
 Terms:
-- **ledger**: one of three JSONL logs: `trace.jsonl`, `usage.jsonl`, `db-perf.jsonl`.
+- **ledger**: one of four JSONL logs: `trace.jsonl`, `usage.jsonl`, `calls.jsonl`, `db-perf.jsonl`.
 - **usage**: model spend: `usage.jsonl`, one line per model call.
 """
 
@@ -53,11 +55,15 @@ class Ledger:
     def usage(self, event: dict) -> None:
         self._write("usage", event)
 
+    def calls(self, event: dict) -> None:
+        if self.enabled.get("usage", False):  # the same record of spend, under the same switch
+            self._write("calls", event, enabled=True)
+
     def trace(self, event: dict) -> None:
         self._write("trace", event)
 
-    def _write(self, name: str, event: dict) -> None:
-        if not self.enabled.get(name, False):
+    def _write(self, name: str, event: dict, *, enabled: bool | None = None) -> None:
+        if not (self.enabled.get(name, False) if enabled is None else enabled):
             return
         record = {"at": clock_mod.iso(self.clock())} | event
         # Every artifact line is validated where it is produced. A line
