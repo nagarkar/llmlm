@@ -1267,6 +1267,7 @@ class Client:
                         rejected.cache_write,
                     )
                     rejected = replace(rejected, cost_usd=priced)
+                    error.raw = rejected
                 self.calls += 1
                 self.spent_usd += rejected.cost_usd or 0.0
                 self._ledger_raw(stage, prompt, model, rejected, tag, outcome)
