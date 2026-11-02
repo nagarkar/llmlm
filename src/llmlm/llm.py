@@ -65,6 +65,7 @@ import json
 import os
 import sys
 import time
+import uuid
 from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 from datetime import UTC
@@ -73,7 +74,7 @@ from typing import Any, Protocol
 
 from . import clock as clock_mod
 from . import prices as prices_mod
-from .estimate import Estimate, estimate
+from .estimate import Estimate, approximate_tokens, estimate
 from .files import write_atomic
 from .ledger import Ledger
 from .ledger import read as ledger_read
@@ -103,12 +104,21 @@ class VendorError(RuntimeError):
     goes on to the next video."""
 
 
-class Refused(RuntimeError):
+class _RejectedReply(RuntimeError):
+    """A reply the vendor sent and billed but llmlm will not use. `raw` carries its tokens, cost
+    and partial text, so the client can put the spend in the ledger before the error goes on."""
+
+    def __init__(self, message: str, raw: RawReply | None = None):
+        super().__init__(message)
+        self.raw = raw
+
+
+class Refused(_RejectedReply):
     """The model declined to answer (Anthropic `stop_reason: refusal`, which litellm maps to
     `finish_reason: content_filter`). An HTTP 200, so it must never pass for an empty reply."""
 
 
-class TruncatedReply(RuntimeError):
+class TruncatedReply(_RejectedReply):
     """The vendor cut the reply at the token limit; a failure, never a partial artifact."""
 
 
@@ -388,11 +398,6 @@ class LiteLLMTransport:
             raise VendorError(f"{model}: no reply after {MAX_ATTEMPTS} attempts")
         usage = getattr(response, "usage", None)
         finish = getattr(response.choices[0], "finish_reason", None)
-        if finish == "length":
-            # A reply cut off by the token limit is a failure, never a partial artifact.
-            raise TruncatedReply("reply cut off by the token limit (finish_reason=length)")
-        if finish == "content_filter":
-            raise Refused(f"{model} refused to answer (finish_reason=content_filter)")
         try:
             cost = float(cost_of(response))
         except Exception:  # noqa: BLE001 - unknown price table → null, never an estimate
@@ -400,7 +405,7 @@ class LiteLLMTransport:
         details = getattr(usage, "prompt_tokens_details", None)
         cache_read = _usage_int(details, "cached_tokens")
         cache_write = _usage_int(details, "cache_creation_tokens")
-        return RawReply(
+        raw = RawReply(
             text=response.choices[0].message.content or "",
             tokens_in=max(0, _usage_int(usage, "prompt_tokens") - cache_read - cache_write),
             tokens_out=_usage_int(usage, "completion_tokens"),
@@ -409,6 +414,12 @@ class LiteLLMTransport:
             cache_write=cache_write,
             finish_reason=finish or "stop",
         )
+        if finish == "length":
+            # A reply cut off by the token limit is a failure, never a partial artifact.
+            raise TruncatedReply("reply cut off by the token limit (finish_reason=length)", raw)
+        if finish == "content_filter":
+            raise Refused(f"{model} refused to answer (finish_reason=content_filter)", raw)
+        return raw
 
 
 class ScriptedTransport:
@@ -638,8 +649,20 @@ class Client:
                         and not entry.get("cached")
                     ):
                         total += float(entry.get("cost_usd") or 0.0)
-            self._spent_before_today = total
+            self._spent_before_today = total + self._unsettled_today(today)
         return self._spent_before_today + self.spent_usd
+
+    def _unsettled_today(self, today: str) -> float:
+        """The most today's calls with no known cost can have cost: those that got no reply, and
+        those whose run died before saying how they ended."""
+        path = self.root / LOGS_DIR / "calls.jsonl"
+        most: dict[str, float] = {}
+        for entry in ledger_read(path, with_rotated=True):
+            if entry["event"] == "sent" and str(entry.get("at", "")).startswith(today):
+                most[entry["call"]] = float(entry.get("max_usd") or 0.0)
+            elif entry["event"] == "done" and entry.get("outcome") != "no_reply":
+                most.pop(entry["call"], None)
+        return sum(most.values())
 
     def check_spend_cap(self, stage: str, tag: str) -> None:
         """Raise SpendCapReached, naming the cap, before a billed call that a
@@ -825,16 +848,7 @@ class Client:
         while attempts < 2:
             attempts += 1
             started = time.monotonic()
-            raw = self.transport.send(
-                model,
-                messages,
-                {
-                    parameter_name: parameter_value
-                    for parameter_name, parameter_value in params.items()
-                    if parameter_name != "_stage" or self.transport.name == "scripted"
-                },
-                tag=tag,
-            )
+            raw = self._send(stage, prompt, model, messages, params, tag)
             elapsed = time.monotonic() - started
             if raw.cost_usd is None:
                 # the transport had no price for it; the price cache may
@@ -1065,12 +1079,7 @@ class Client:
         if (timeout or section.get("timeout_seconds")) and self.transport.name == "litellm":
             params["timeout"] = float(timeout or section["timeout_seconds"])
         started = time.monotonic()
-        raw = self.transport.send(
-            model,
-            messages,
-            {k: v for k, v in params.items() if k != "_stage" or self.transport.name == "scripted"},
-            tag=tag,
-        )
+        raw = self._send(stage, prompt, model, messages, params, tag)
         elapsed = time.monotonic() - started
         if raw.cost_usd is None:
             priced = self.prices.price_usd(
@@ -1206,6 +1215,79 @@ class Client:
             except ValueError as error:
                 raise BadReply(str(error), attempts, text) from error
         return parsed
+
+    def _send(
+        self, stage: str, prompt: Prompt, model: str, messages: list[dict], params: dict, tag: str
+    ) -> RawReply:
+        """One vendor call, on the record before it goes out. `calls.jsonl` gets a `sent` line with
+        the input size and the most the call can cost, and a `done` line when it ends; a `sent`
+        with no `done` is a call that may have been billed by a run that died. A reply the vendor
+        sent but llmlm rejects reaches `usage.jsonl` and the run's spend with its real cost. A call
+        with no reply counts at that most, since the vendor may have billed it."""
+        call = uuid.uuid4().hex[:12]
+        max_tokens = int(params.get("max_tokens") or 0)
+        tokens_in = approximate_tokens(model, messages)
+        most = self.prices.price_usd(model, tokens_in, max_tokens)
+        fields = {"call": call, "stage": stage, "model": model, "tag": tag}
+
+        def done(outcome: str) -> None:
+            self.ledger.calls({**fields, "event": "done", "outcome": outcome})
+
+        self.ledger.calls(
+            {
+                **fields,
+                "event": "sent",
+                "tokens_in": tokens_in,
+                "max_tokens": max_tokens,
+                "max_usd": most,
+            }
+        )
+        try:
+            raw = self.transport.send(
+                model,
+                messages,
+                {
+                    k: v
+                    for k, v in params.items()
+                    if k != "_stage" or self.transport.name == "scripted"
+                },
+                tag=tag,
+            )
+        except (TruncatedReply, Refused) as error:
+            outcome = "truncated" if isinstance(error, TruncatedReply) else "refused"
+            done(outcome)
+            if error.raw is not None:
+                rejected = error.raw
+                if rejected.cost_usd is None:
+                    priced = self.prices.price_usd(
+                        model,
+                        rejected.tokens_in,
+                        rejected.tokens_out,
+                        rejected.cache_read,
+                        rejected.cache_write,
+                    )
+                    rejected = replace(rejected, cost_usd=priced)
+                    error.raw = rejected
+                self.calls += 1
+                self.spent_usd += rejected.cost_usd or 0.0
+                self._ledger_raw(stage, prompt, model, rejected, tag, outcome)
+                self.log_block(
+                    stage,
+                    f"{tag} {outcome} in={rejected.tokens_in} out={rejected.tokens_out} "
+                    f"cost={rejected.cost_usd}",
+                    flat_text(messages),
+                    rejected.text,
+                )
+            raise
+        except VendorError:
+            done("no_reply")
+            self.spent_usd += most or 0.0
+            raise
+        except Exception:
+            done("not_sent")
+            raise
+        done("replied")
+        return raw
 
     def _ledger_raw(
         self, stage: str, prompt: Prompt, model: str, raw: RawReply, tag: str, outcome: str

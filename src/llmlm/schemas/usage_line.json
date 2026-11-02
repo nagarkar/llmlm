@@ -70,10 +70,12 @@
   },
   "outcome": {
    "type": "string",
-   "description": "ok | bad_reply.",
+   "description": "ok | bad_reply | truncated | refused (billed, and rejected by llmlm).",
    "enum": [
     "ok",
-    "bad_reply"
+    "bad_reply",
+    "truncated",
+    "refused"
    ]
   },
   "cache_read": {

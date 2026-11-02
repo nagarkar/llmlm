@@ -1,0 +1,74 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "llmlm.calls_line/1",
+ "title": "calls.jsonl line",
+ "description": "One vendor call starting or ending (llmlm.ledger).",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "at",
+  "call",
+  "event",
+  "stage",
+  "model",
+  "tag"
+ ],
+ "properties": {
+  "at": {
+   "type": "string",
+   "description": "ISO timestamp, UTC."
+  },
+  "call": {
+   "type": "string",
+   "description": "Id shared by a call's sent and done lines."
+  },
+  "event": {
+   "type": "string",
+   "description": "sent | done.",
+   "enum": [
+    "sent",
+    "done"
+   ]
+  },
+  "stage": {
+   "type": "string",
+   "description": "Pipeline stage."
+  },
+  "model": {
+   "type": "string",
+   "description": "LiteLLM model string."
+  },
+  "tag": {
+   "type": "string",
+   "description": "The unit of work."
+  },
+  "tokens_in": {
+   "type": "integer",
+   "minimum": 0,
+   "description": "Sent: approximate prompt tokens."
+  },
+  "max_tokens": {
+   "type": "integer",
+   "minimum": 0,
+   "description": "Sent: the reply limit requested, 0 when none."
+  },
+  "max_usd": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "Sent: the most the call can cost, input only when no reply limit is set; null when unpriced."
+  },
+  "outcome": {
+   "type": "string",
+   "description": "Done: how the call ended.",
+   "enum": [
+    "replied",
+    "truncated",
+    "refused",
+    "no_reply",
+    "not_sent"
+   ]
+  }
+ }
+}
