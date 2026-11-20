@@ -75,3 +75,12 @@ name = "the board reads ledgers only"
 type = "forbidden"
 source_modules = ["llmlm.usage"]
 forbidden_modules = ["llmlm.prices", "llmlm.estimate", "llmlm.prompts"]
+
+[[tool.importlinter.contracts]]
+name = "the cast calls only the image road"
+type = "forbidden"
+source_modules = ["llmlm.cast"]
+forbidden_modules = [
+  "llmlm.llm", "llmlm.usage", "llmlm.estimate", "llmlm.prices", "llmlm.ledger", "llmlm.prompts",
+]
+allow_indirect_imports = true  # llmlm.images reaches llmlm.llm for the vendor key's name

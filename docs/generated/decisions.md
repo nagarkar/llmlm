@@ -11,7 +11,10 @@ Rules that span modules, from each package's `Decisions:`. Owner rules end with 
 - `llmlm`: One ledger format, one cap vocabulary (`[llm].max_usd_per_run`, `[llm].max_usd_per_day`), one price cache, for every tool. (owner)
 - `llmlm`: The reply-cache key is byte for byte what corpuslm's was. Enforced by: tests/test_llm.py::test_the_cache_key_is_byte_for_byte_what_it_always_was. (owner)
 - `llmlm`: llmlm is a library only; verbs live in the tools. Enforced by: pyproject.toml (no `[project.scripts]`). (owner)
+- `llmlm.cast`: "of this book" in the reference text and the `authorlm:` prefix on stored fields are settings (`Settings.series`, `Settings.prefix`), so authorlm's existing images keep reading correctly. Enforced by: tests/test_cast.py::test_an_image_authorlm_wrote_before_the_move_still_reads. (owner)
+- `llmlm.cast`: A render that names a character with no picked plate does not run text-only; it stops with every reason as a sentence. Enforced by: tests/test_cast.py::test_render_declines_text_only_when_a_named_character_has_no_plate. (owner)
+- `llmlm.cast`: The cast code lives here and authorlm and musiclm both call it. Here: looking up a character's picked plate and reporting one that is missing or unpicked; the reference text sent with the plates; rendering N candidates with the plates attached; candidate file names and the hashes behind them; the fields stored inside each image file and reading them back; the pin file and the off-model mark. In the caller: finding its characters, its look rules, its description files, and its picks (authorlm: the embed line; musiclm: the request file). Why: musiclm's stills need the same likeness machinery authorlm's illustrations have, and two copies would drift. It never reads a manuscript: it works on a folder of images and the plain data it is handed. Enforced by: tests/test_cast.py::test_references_come_back_in_cast_order_then_the_prior_plate. (owner)
 
 ## Agent-drafted
 
-None yet.
+- `llmlm.cast`: Candidate names and their hashes are byte for byte what authorlm wrote before the move. Enforced by: tests/test_cast.py::test_the_hashes_are_what_authorlm_always_wrote.

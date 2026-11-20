@@ -15,6 +15,7 @@ llmlm is a library. It has no command line; a tool's own `usage`, `doctor` and r
 | Add a model litellm's map lacks or gets wrong | a row in `OVERRIDES` (`src/llmlm/prices.py`) with its source page and verified date |
 | Add a model whose request shape was verified live | a row in `MODEL_PROFILES` (`src/llmlm/llm.py`), one exact model string, no wildcard |
 | A tool's month of spend for its `usage` verb | `llmlm.usage.tool_spend(name, ledger_folder, settings_file, "YYYY-MM")` |
+| Keep a character looking the same across rendered pictures (plates as references, candidate names, the record inside each image, the model-and-size pin) | `llmlm.cast`: `render(folder, slug, Request(...), [Character(slug, plate)], resolve_pin(ensure_pin(folder, model, size)), Settings(series=..., prefix=...))`; the caller keeps its own picks |
 | Run the consumers' tests against this working tree | `tools/check-consumers.sh [name ...]` (also the pre-push hook) |
 
 - Tests never call a model or the network: the scripted transport (`<dir>/<stage>/<tag>.json`) or a recorded cache directory serves replies. A test that prices anything builds `llmlm.prices.Prices(tmp_path / "prices.json", fetch=...)`; the machine-wide cache under `~/.llmlm/` is never read by a test.
