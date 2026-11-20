@@ -2,16 +2,24 @@
 
 # Glossary
 
+- **candidate** (`llmlm.cast`): one rendered image file of a request; a request's candidates are numbered on from 01 and the number never resets.
+- **character** (`llmlm.cast`): a figure or a stage that must look the same in every picture; a slug and, once picked, a plate.
 - **consumer-test gate** (`llmlm`): every tool's test suite run against the llmlm working tree before a push, by the pre-push hook.
 - **estimate** (`llmlm.estimate`): calls, cached calls, tokens in and out, and the cost at the configured model, for a run that has not happened.
 - **Jev** (`llmlm.typesafe`): TypeSafe's System One model, named by the alias `jev-latest` to follow its newest release.
 - **ledger** (`llmlm.ledger`): one of four JSONL logs: `trace.jsonl`, `usage.jsonl`, `calls.jsonl`, `db-perf.jsonl`.
+- **look text** (`llmlm.cast`): the rendering rules sent after the description; the caller writes it and its hash is the `stylehash` part of a candidate name.
 - **model spend** (`llmlm.usage`): the dollars, calls, cached calls and tokens in a tool's `usage.jsonl`.
+- **off-model** (`llmlm.cast`): a render made on a model or size other than the pin's; marked in the image.
 - **override** (`llmlm.prices`): a hand-verified price row with its source page and date, for a model the map lacks or gets wrong.
 - **payload** (`llmlm.llm`): the rendered messages of one model call; its sha256 with the model and temperature is the cache key.
+- **pin** (`llmlm.cast`): the model and size a folder's renders run on, in its `settings.toml`; stamped once from the caller's default and owned by the folder from then on.
+- **plate** (`llmlm.cast`): the one candidate image the caller picked for a character; the file attached as a reference.
 - **price cache** (`llmlm.prices`): `~/.llmlm/prices.json`, the fetched model map with its `checked_at`.
+- **prior plate** (`llmlm.cast`): one plate a render follows for stage and composition, not for likeness.
 - **prompt** (`llmlm.prompts`): one versioned file with front matter (id, version, stage, output schema, configuration section, expected output tokens) and a body.
 - **provenance** (`llmlm.llm`): what an artifact records about how it was made: prompt, model, cost, time.
+- **reference** (`llmlm.cast`): a plate attached to a render, in the order the reference text names it: the request's cast, then its prior plate.
 - **render** (`llmlm.images`): one `generate_image` call, one image back.
 - **spend cap** (`llmlm.llm`): `[llm].max_usd_per_run` (per run) or `[llm].max_usd_per_day` (per day) in a tool's settings: the client raises `SpendCapReached` before a call that would exceed it. A source it stops is recorded failed with a reason that starts `budget` (the stored name).
 - **tool** (`llmlm`): a repo that calls a model through llmlm (ytlm, beelm, corpuslm, mailerlm, supplylm, authorlm, gamelm, podlm).

@@ -15,6 +15,8 @@ verbs. Under them it calls this package:
   rule, its input-only cost and its ledger line.
 - `llmlm.images` (extra `llmlm[images]`): one rendered image per call, Gemini, OpenAI edits or
   litellm, with a count-only ledger line.
+- `llmlm.cast`: one look for a character across many pictures: picked plates attached as
+  references, candidate file names, the record stored inside each image, the model-and-size pin.
 - `llmlm.ledger`: the `usage.jsonl` writer and reader, one line per call, rotated.
 - `llmlm.usage`: the model-spend board a tool's `usage` verb and the one dashboard read.
 

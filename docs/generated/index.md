@@ -8,6 +8,14 @@
 
 llmlm: the one model-call layer for the lm repos, a library with no command line.
 
+## `llmlm.cast`
+
+`src/llmlm/cast.py`
+
+Cast: one look for a character across many pictures, on a folder of images and plain data.
+
+Never imports: llm, usage, estimate, prices, ledger, prompts (enforced by the import contract
+
 ## `llmlm.clock`
 
 `src/llmlm/clock.py`
