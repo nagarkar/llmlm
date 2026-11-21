@@ -62,6 +62,14 @@ LLM: the model transport, reply cache, usage ledger lines and spend caps.
 
 Never imports: usage.
 
+## `llmlm.picker`
+
+`src/llmlm/picker/__init__.py`
+
+Picker: the page for choosing among candidate images, as HTML text a host app serves itself.
+
+Never imports: any other llmlm module (enforced by the import contract "the picker stands alone"
+
 ## `llmlm.prices`
 
 `src/llmlm/prices.py`

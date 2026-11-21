@@ -84,3 +84,12 @@ forbidden_modules = [
   "llmlm.llm", "llmlm.usage", "llmlm.estimate", "llmlm.prices", "llmlm.ledger", "llmlm.prompts",
 ]
 allow_indirect_imports = true  # llmlm.images reaches llmlm.llm for the vendor key's name
+
+[[tool.importlinter.contracts]]
+name = "the picker stands alone"
+type = "forbidden"
+source_modules = ["llmlm.picker"]
+forbidden_modules = [
+  "llmlm.cast", "llmlm.clock", "llmlm.estimate", "llmlm.files", "llmlm.images", "llmlm.ledger",
+  "llmlm.llm", "llmlm.prices", "llmlm.prompts", "llmlm.schemas", "llmlm.typesafe", "llmlm.usage",
+]

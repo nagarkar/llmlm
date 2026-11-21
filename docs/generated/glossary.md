@@ -4,15 +4,22 @@
 
 - **candidate** (`llmlm.cast`): one rendered image file of a request; a request's candidates are numbered on from 01 and the number never resets.
 - **character** (`llmlm.cast`): a figure or a stage that must look the same in every picture; a slug and, once picked, a plate.
+- **choice** (`llmlm.picker`): one thing the owner picks for (a character's plate, a scene's stills): an id, a title, its candidates, its picks and its pick note. It takes one pick, or several in order.
 - **consumer-test gate** (`llmlm`): every tool's test suite run against the llmlm working tree before a push, by the pre-push hook.
 - **estimate** (`llmlm.estimate`): calls, cached calls, tokens in and out, and the cost at the configured model, for a run that has not happened.
+- **held back** (`llmlm.picker`): a choice the host cannot fill yet, with the sentence saying why.
+- **host** (`llmlm.picker`): the app that serves the picking page on its own server and records the picks (musiclm, authorlm).
 - **Jev** (`llmlm.typesafe`): TypeSafe's System One model, named by the alias `jev-latest` to follow its newest release.
 - **ledger** (`llmlm.ledger`): one of four JSONL logs: `trace.jsonl`, `usage.jsonl`, `calls.jsonl`, `db-perf.jsonl`.
 - **look text** (`llmlm.cast`): the rendering rules sent after the description; the caller writes it and its hash is the `stylehash` part of a candidate name.
+- **mark** (`llmlm.picker`): a short phrase the host puts on a candidate ("from an earlier brief").
 - **model spend** (`llmlm.usage`): the dollars, calls, cached calls and tokens in a tool's `usage.jsonl`.
 - **off-model** (`llmlm.cast`): a render made on a model or size other than the pin's; marked in the image.
 - **override** (`llmlm.prices`): a hand-verified price row with its source page and date, for a model the map lacks or gets wrong.
 - **payload** (`llmlm.llm`): the rendered messages of one model call; its sha256 with the model and temperature is the cache key.
+- **pick** (`llmlm.picker`): the file name of a candidate chosen for a choice; the picks of a choice are ordered.
+- **pick note** (`llmlm.picker`): the owner's free text on one choice, saying what is off.
+- **picking reply** (`llmlm.picker`): what Save posts: per choice, its picks in order and its pick note.
 - **pin** (`llmlm.cast`): the model and size a folder's renders run on, in its `settings.toml`; stamped once from the caller's default and owned by the folder from then on.
 - **plate** (`llmlm.cast`): the one candidate image the caller picked for a character; the file attached as a reference.
 - **price cache** (`llmlm.prices`): `~/.llmlm/prices.json`, the fetched model map with its `checked_at`.

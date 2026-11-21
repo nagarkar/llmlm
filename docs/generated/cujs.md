@@ -4,4 +4,6 @@
 
 Each journey is proven by the test named beside it.
 
-None yet: mark end-to-end tests with `@pytest.mark.cuj("...")`.
+## `tests/test_picker.py`
+
+- The owner opens a host app's picking page on a phone, picks among the candidate images of each choice and taps Save via the host's own server, and sees the host record the picked file names in order with the note. If a picked name is not one of the candidates offered, they see the sentence naming it and nothing is recorded. (`tests/test_picker.py::test_a_host_serves_the_page_and_records_a_valid_reply_its_own_way`)
