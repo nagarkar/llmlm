@@ -165,6 +165,12 @@ class Pin:
 
 @dataclass(frozen=True)
 class Rendered:
+    """A render's candidate names, hashes, references, model and off-model status.
+
+    `written` lists file names relative to the render folder; `composed` is the prompt
+    sent to the generator.
+    """
+
     written: list[str]
     desc_hash: str
     style_hash: str

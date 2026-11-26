@@ -294,6 +294,7 @@ def test_render_writes_n_candidates_with_the_plates_attached_and_the_record_insi
     )
     deschash = cast.desc_hash("the rider meets the serpent")
     assert out.written == [f"meeting-{deschash}-55fe-01.png", f"meeting-{deschash}-55fe-02.png"]
+    assert all((folder / name).is_file() for name in out.written)
     assert (out.desc_hash, out.style_hash, out.model, out.off_model) == (
         deschash,
         "55fe",
