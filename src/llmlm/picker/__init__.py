@@ -352,6 +352,30 @@ def render(page: Page) -> str:
     )
 
 
+def _read_picked(entry: dict, choice: Choice, problems: list[str]) -> Picked:
+    """Read one offered choice's picks and note, appending validation problems."""
+    name = entry["id"]
+    picks = entry.get("picks", [])
+    if not isinstance(picks, list) or not all(isinstance(pick, str) for pick in picks):
+        problems.append(f"The picks for '{name}' are not a list of file names.")
+        picks = []
+    files = {candidate.file for candidate in choice.candidates}
+    for position, pick in enumerate(picks):
+        if pick not in files:
+            problems.append(f"'{pick}' is not one of the candidates offered for '{name}'.")
+        elif pick in picks[:position]:
+            problems.append(f"'{pick}' is picked twice for '{name}'.")
+    if not choice.several and len(picks) > 1:
+        problems.append(f"'{name}' takes one pick and the reply has {len(picks)}.")
+    note = entry.get("note", "")
+    if not isinstance(note, str):
+        problems.append(f"The note for '{name}' is not text.")
+        note = ""
+    elif len(note) > MAX_NOTE_CHARS:
+        problems.append(f"The note for '{name}' is longer than {MAX_NOTE_CHARS} characters.")
+    return Picked(name, tuple(picks), note)
+
+
 def read_reply(body: bytes | str, page: Page) -> Reply:
     """The posted picking reply as plain data, checked against the page it was offered on (the
     host rebuilds the same `Page` it rendered). Every problem is a sentence in `problems`; a
@@ -383,26 +407,7 @@ def read_reply(body: bytes | str, page: Page) -> Reply:
         if name in read:
             problems.append(f"The reply names '{name}' twice.")
             continue
-        choice = offered[name]
-        picks = entry.get("picks", [])
-        if not isinstance(picks, list) or not all(isinstance(pick, str) for pick in picks):
-            problems.append(f"The picks for '{name}' are not a list of file names.")
-            picks = []
-        files = {candidate.file for candidate in choice.candidates}
-        for position, pick in enumerate(picks):
-            if pick not in files:
-                problems.append(f"'{pick}' is not one of the candidates offered for '{name}'.")
-            elif pick in picks[:position]:
-                problems.append(f"'{pick}' is picked twice for '{name}'.")
-        if not choice.several and len(picks) > 1:
-            problems.append(f"'{name}' takes one pick and the reply has {len(picks)}.")
-        note = entry.get("note", "")
-        if not isinstance(note, str):
-            problems.append(f"The note for '{name}' is not text.")
-            note = ""
-        elif len(note) > MAX_NOTE_CHARS:
-            problems.append(f"The note for '{name}' is longer than {MAX_NOTE_CHARS} characters.")
-        read[name] = Picked(name, tuple(picks), note)
+        read[name] = _read_picked(entry, offered[name], problems)
     for name in offered:
         if name not in read:
             problems.append(f"The reply leaves out '{name}'.")

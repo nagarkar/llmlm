@@ -118,6 +118,47 @@ GOOD = (
     ("cave", [], ""),
 )
 
+
+@pytest.mark.parametrize(
+    ("row", "problems"),
+    [
+        (
+            ("dragon", ["missing.png", "missing.png"], 7),
+            (
+                "'missing.png' is not one of the candidates offered for 'dragon'.",
+                "'dragon' takes one pick and the reply has 2.",
+                "The note for 'dragon' is not text.",
+            ),
+        ),
+        (
+            ("dragon", "bad", ""),
+            ("The picks for 'dragon' are not a list of file names.",),
+        ),
+        (
+            ("bridge", ["bridge-01.png", "bridge-01.png"], "x" * (picker.MAX_NOTE_CHARS + 1)),
+            (
+                "'bridge-01.png' is picked twice for 'bridge'.",
+                f"The note for 'bridge' is longer than {picker.MAX_NOTE_CHARS} characters.",
+            ),
+        ),
+    ],
+)
+def test_reply_accumulates_choice_problems_without_returning_partial_picks(row, problems):
+    rows = [row if good[0] == row[0] else good for good in GOOD]
+    reply = picker.read_reply(_reply(*rows), _page())
+    assert reply.problems == problems
+    assert reply.picked == ()
+
+
+def test_reply_preserves_pick_order_and_notes_when_entries_arrive_in_reverse_order():
+    reply = picker.read_reply(_reply(*reversed(GOOD), token="save-1"), _page())
+    assert reply.problems == ()
+    assert reply.token == "save-1"
+    assert tuple((picked.id, picked.picks, picked.note) for picked in reply.picked) == tuple(
+        (name, tuple(picks), note) for name, picks, note in GOOD
+    )
+
+
 # ---- the page -------------------------------------------------------------------------------
 
 
